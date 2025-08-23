@@ -203,7 +203,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     groupValue: selectedMethod,
                     onChanged: (value) {
                       setState(() {
-                        selectedMethod = value as String?;
+                        selectedMethod = value;
                       });
                     },
                   ),
@@ -213,7 +213,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     groupValue: selectedMethod,
                     onChanged: (value) {
                       setState(() {
-                        selectedMethod = value as String?;
+                        selectedMethod = value;
                       });
                     },
                   ),
@@ -223,7 +223,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     groupValue: selectedMethod,
                     onChanged: (value) {
                       setState(() {
-                        selectedMethod = value as String?;
+                        selectedMethod = value;
                       });
                     },
                   ),

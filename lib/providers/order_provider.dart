@@ -3,12 +3,9 @@ import 'package:aplikasi_kasir_seafood/models/menu.dart' as model_menu;
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
 import 'package:aplikasi_kasir_seafood/models/order_item.dart' as model_order_item;
 import 'package:aplikasi_kasir_seafood/services/order_service.dart';
-import 'package:aplikasi_kasir_seafood/services/customer_service.dart';
 
 class OrderProvider with ChangeNotifier {
   final OrderService _orderService = OrderService();
-  final CustomerService _customerService = CustomerService();
-
   List<model_order_item.OrderItem> _cart = [];
   int? _editingOrderId;
   int? _editingCustomerId;
