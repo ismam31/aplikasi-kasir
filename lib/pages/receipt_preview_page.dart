@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
-import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
 import 'package:aplikasi_kasir_seafood/models/menu.dart' as model_menu;
 import 'package:aplikasi_kasir_seafood/models/order_item.dart' as model_order_item;
 import 'package:aplikasi_kasir_seafood/providers/order_list_provider.dart';
@@ -39,11 +38,6 @@ class ReceiptPreviewPage extends StatelessWidget {
           if (orderListProvider.isLoading || menuProvider.isLoading || customerProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-
-          final customer = customerProvider.customers.firstWhere(
-            (c) => c.id == order.customerId,
-            orElse: () => model_customer.Customer(name: 'Pelanggan Tidak Dikenal'),
-          );
 
           return FutureBuilder<List<model_order_item.OrderItem>>(
             future: orderListProvider.getOrderItems(order.id!),
