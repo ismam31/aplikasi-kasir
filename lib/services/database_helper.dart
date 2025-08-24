@@ -24,12 +24,12 @@ class DatabaseHelper {
   Future<Database> _initDatabase() async {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     String path = join(documentsDirectory.path, 'kasir_seafood.db');
-    
+
     return await openDatabase(
       path,
-      version: 2, // Versi dinaikkan dari 1 menjadi 2
+      version: 3,
       onCreate: _onCreate,
-      onUpgrade: _onUpgrade, // Tambahkan metode onUpgrade
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -43,7 +43,7 @@ class DatabaseHelper {
         receipt_message TEXT
       )
     ''');
-    
+
     await db.execute('''
       CREATE TABLE customers (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -113,6 +113,40 @@ class DatabaseHelper {
     if (oldVersion < 2) {
       // Tambahkan kolom guest_count ke tabel customers
       await db.execute('ALTER TABLE customers ADD COLUMN guest_count INTEGER');
+    }
+    if (oldVersion < 3) {
+      // Ubah tipe data kolom is_available di tabel menu
+      await db.execute('''
+        CREATE TABLE menu_new (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          description TEXT,
+          price_base REAL,
+          price_sell REAL NOT NULL,
+          is_available INTEGER NOT NULL DEFAULT 1,
+          weight_unit TEXT,
+          image TEXT,
+          category_id INTEGER,
+          FOREIGN KEY (category_id) REFERENCES categories(id)
+        )
+      ''');
+      final tables = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='menu'",
+      );
+      if (tables.isNotEmpty) {
+        await db.execute('''
+          INSERT INTO menu_new (
+            id, name, description, price_base, price_sell, is_available, weight_unit, image, category_id
+          )
+          SELECT 
+            id, name, description, price_base, price_sell,
+            CASE WHEN stock > 0 THEN 1 ELSE 0 END,
+            weight_unit, image, category_id
+          FROM menu
+        ''');
+      }
+      await db.execute('DROP TABLE menu');
+      await db.execute('ALTER TABLE menu_new RENAME TO menu');
     }
     // Jika ada migrasi lain di masa depan, bisa ditambahkan di sini
   }

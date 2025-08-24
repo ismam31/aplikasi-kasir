@@ -111,6 +111,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                             id: 0,
                             name: 'Menu Tidak Ditemukan',
                             priceSell: 0,
+                            isAvailable: false,
                           ),
                         );
                         return ListTile(

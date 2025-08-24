@@ -19,6 +19,16 @@ class MenuService {
     });
   }
 
+  Future<void> updateMenuAvailability(int id, bool isAvailable) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      'menus',
+      {'is_available': isAvailable ? 1 : 0},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
   // Metode untuk memperbarui data menu
   Future<int> updateMenu(Menu menu) async {
     final db = await _dbHelper.database;
