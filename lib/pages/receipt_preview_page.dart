@@ -82,6 +82,7 @@ class ReceiptPreviewPage extends StatelessWidget {
                           id: 0,
                           name: 'Menu Tidak Ditemukan',
                           priceSell: 0,
+                          isAvailable: false,
                         ),
                       );
                       return Padding(

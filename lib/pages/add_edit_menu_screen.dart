@@ -30,6 +30,7 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
   String? _selectedWeightUnit;
   String? _imagePath;
   final ImagePicker _picker = ImagePicker();
+  late bool _isAvailable = true;
 
   final List<String> _weightUnits = ['gram', 'kg', 'ml', 'liter', 'pcs'];
 
@@ -45,9 +46,7 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
     _priceSellController = TextEditingController(
       text: menu?.priceSell.toString() ?? '',
     );
-    _stockController = TextEditingController(
-      text: menu?.stock?.toString() ?? '',
-    );
+    _isAvailable = menu?.isAvailable ?? true;
     _weightUnitController = TextEditingController(text: menu?.weightUnit ?? '');
     _selectedWeightUnit = menu?.weightUnit;
     _imagePath = menu?.image;
@@ -114,7 +113,7 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
             : _descController.text.trim(),
         priceBase: _parseCurrency(_priceBaseController.text),
         priceSell: _parseCurrency(_priceSellController.text),
-        stock: int.tryParse(_stockController.text),
+        isAvailable: _isAvailable,
         weightUnit: _selectedWeightUnit,
         image: _imagePath,
         categoryId: _selectedCategory?.id,
@@ -218,10 +217,17 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
                     ),
                     const SizedBox(height: 12),
                     // Stok
-                    TextFormField(
-                      controller: _stockController,
-                      decoration: const InputDecoration(labelText: 'Stok'),
-                      keyboardType: TextInputType.number,
+                    SwitchListTile(
+                      title: const Text('Stok'),
+                      subtitle: Text(
+                        _isAvailable ? 'Tersedia' : 'Tidak Tersedia',
+                      ),
+                      value: _isAvailable,
+                      onChanged: (val) {
+                        setState(() {
+                          _isAvailable = val;
+                        });
+                      },
                     ),
                     const SizedBox(height: 12),
                     // Satuan berat

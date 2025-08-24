@@ -4,7 +4,7 @@ class Menu {
   String? description;
   double? priceBase;
   double priceSell;
-  int? stock;
+  bool isAvailable;
   String? weightUnit;
   String? image;
   int? categoryId;
@@ -15,7 +15,7 @@ class Menu {
     this.description,
     this.priceBase,
     required this.priceSell,
-    this.stock,
+    required this.isAvailable,
     this.weightUnit,
     this.image,
     this.categoryId,
@@ -28,7 +28,7 @@ class Menu {
       description: map['description'],
       priceBase: map['price_base'],
       priceSell: map['price_sell'],
-      stock: map['stock'],
+      isAvailable: map['is_available'] == 1,
       weightUnit: map['weight_unit'],
       image: map['image'],
       categoryId: map['category_id'],
@@ -42,7 +42,7 @@ class Menu {
       'description': description,
       'price_base': priceBase,
       'price_sell': priceSell,
-      'stock': stock,
+      'is_available': isAvailable ? 1 : 0,
       'weight_unit': weightUnit,
       'image': image,
       'category_id': categoryId,

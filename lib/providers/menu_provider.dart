@@ -20,6 +20,18 @@ class MenuProvider with ChangeNotifier {
     loadMenusAndCategories();
   }
 
+  Future<void> updateMenuAvailability(int id, bool isAvailable) async {
+    // Update di database / service
+    await _menuService.updateMenuAvailability(id, isAvailable);
+
+    // Update state lokal
+    final index = _menus.indexWhere((menu) => menu.id == id);
+    if (index != -1) {
+      _menus[index].isAvailable = isAvailable;
+      notifyListeners();
+    }
+  }
+
   // Metode untuk memuat data kategori dan menu
   Future<void> loadMenusAndCategories() async {
     _isLoading = true;
