@@ -119,7 +119,7 @@ class ReceiptPreviewPage extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Bayar (Cash)'),
+                        const Text('Bayar'),
                         Text('Rp ${_formatCurrency(cashGiven)}'),
                       ],
                     ),

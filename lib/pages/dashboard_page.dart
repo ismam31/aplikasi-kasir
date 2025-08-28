@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:aplikasi_kasir_seafood/providers/report_provider.dart';
+import 'package:aplikasi_kasir_seafood/providers/order_list_provider.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_drawer.dart';
 
@@ -9,6 +10,22 @@ class DashboardPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Future<void> refreshDashboard(BuildContext context) async {
+      final orderProvider = Provider.of<OrderListProvider>(
+        context,
+        listen: false,
+      );
+      final reportProvider = Provider.of<ReportProvider>(
+        context,
+        listen: false,
+      );
+
+      await Future.wait([
+        orderProvider.loadOrders(),
+        reportProvider.loadReports(),
+      ]);
+    }
+
     return Scaffold(
       appBar: const CustomAppBar(title: 'Dashboard Kasir'),
       drawer: const CustomDrawer(),
@@ -18,12 +35,11 @@ class DashboardPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          return RefreshIndicator(
+            onRefresh: () => refreshDashboard(context),
+            child: ListView(
+              padding: const EdgeInsets.all(16.0),
               children: <Widget>[
-                // Card untuk Pendapatan
                 _buildMetricCard(
                   context,
                   title: 'Total Pendapatan',
@@ -31,15 +47,14 @@ class DashboardPage extends StatelessWidget {
                   color: Colors.green,
                 ),
                 const SizedBox(height: 16),
-                // Card untuk Pengeluaran
                 _buildMetricCard(
                   context,
                   title: 'Total Pengeluaran',
-                  value: 'Rp ${reportProvider.totalExpenses.toStringAsFixed(0)}',
+                  value:
+                      'Rp ${reportProvider.totalExpenses.toStringAsFixed(0)}',
                   color: Colors.red,
                 ),
                 const SizedBox(height: 16),
-                // Card untuk Keuntungan Bersih
                 _buildMetricCard(
                   context,
                   title: 'Keuntungan Bersih',
@@ -54,12 +69,15 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  Widget _buildMetricCard(BuildContext context, {required String title, required String value, required Color color}) {
+  Widget _buildMetricCard(
+    BuildContext context, {
+    required String title,
+    required String value,
+    required Color color,
+  }) {
     return Card(
       elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
         decoration: BoxDecoration(
           color: color.withOpacity(0.1),

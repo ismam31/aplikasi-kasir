@@ -206,7 +206,7 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
                                 },
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
                       ),
                     ),
@@ -219,10 +219,10 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
                         padding: const EdgeInsets.all(16.0),
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 16.0,
-                              mainAxisSpacing: 16.0,
-                              childAspectRatio: 0.75,
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 5.0,
+                              mainAxisSpacing: 5.0,
+                              childAspectRatio: 0.5,
                             ),
                         itemCount: filteredMenus.length,
                         itemBuilder: (context, index) {
@@ -283,10 +283,9 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  'Rp ${_formatCurrency(menu.priceSell)}',
-                  style: const TextStyle(color: Colors.green),
-                ),
+                Text('Rp ${_formatCurrency(menu.priceSell)}'),
+                const SizedBox(height: 4),
+                Text(menu.isAvailable ? 'Tersedia' : 'Tidak Tersedia'),
               ],
             ),
           ),
@@ -323,43 +322,56 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
   }
 
   Widget _buildMenuItemListTile(BuildContext context, model_menu.Menu menu) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListTile(
-        leading: SizedBox(
-          width: 60,
-          height: 60,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: menu.image != null && menu.image!.isNotEmpty
-                ? Image.file(File(menu.image!), fit: BoxFit.cover)
-                : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
+    final isAvailable = menu.isAvailable;
+    return Column(
+      children: [
+        ListTile(
+          leading: SizedBox(
+            width: 70,
+            height: 60,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: menu.image != null && menu.image!.isNotEmpty
+                  ? Image.file(File(menu.image!), fit: BoxFit.cover)
+                  : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
+            ),
+          ),
+          title: Text(
+            menu.name,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isAvailable ? Colors.black : Colors.grey,
+            ),
+          ),
+          subtitle: Text(
+            isAvailable
+                ? 'Rp ${_formatCurrency(menu.priceSell)}'
+                : 'Tidak Tersedia',
+            style: TextStyle(color: isAvailable ? Colors.black : Colors.red),
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.blue),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AddEditMenuScreen(menu: menu),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _showDeleteConfirmation(context, menu),
+              ),
+            ],
           ),
         ),
-        title: Text(menu.name),
-        subtitle: Text('Rp ${_formatCurrency(menu.priceSell)}'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blue),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AddEditMenuScreen(menu: menu),
-                  ),
-                );
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: () => _showDeleteConfirmation(context, menu),
-            ),
-          ],
-        ),
-      ),
+        const Divider(thickness: 1, height: 1, color: Colors.grey),
+      ],
     );
   }
 }
