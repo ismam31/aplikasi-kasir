@@ -37,11 +37,9 @@ class MyApp extends StatelessWidget {
         // Di sini kita akan menambahkan provider lain di masa depan
       ],
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         title: 'Aplikasi Kasir Seafood',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          useMaterial3: true,
-        ),
+        theme: ThemeData(primarySwatch: Colors.blue, useMaterial3: true),
         home: const DashboardPage(),
       ),
     );

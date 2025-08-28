@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:aplikasi_kasir_seafood/models/menu.dart' as model_menu;
 import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
+import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
 import 'package:aplikasi_kasir_seafood/providers/order_provider.dart';
 import 'package:aplikasi_kasir_seafood/providers/menu_provider.dart';
 import 'package:aplikasi_kasir_seafood/providers/customer_provider.dart';
@@ -11,7 +12,6 @@ import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_notification.dart';
-import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -131,6 +131,117 @@ class _CartPageState extends State<CartPage> {
         icon: Icons.check_circle_outline,
       );
     }
+  }
+
+  void _showEditQuantityDialog(BuildContext context, item) {
+    final menuProvider = Provider.of<MenuProvider>(context, listen: false);
+    final menu = menuProvider.menus.firstWhere(
+      (m) => m.id == item.menuId,
+      orElse: () => model_menu.Menu(
+        id: 0,
+        name: 'Menu Tidak Ditemukan',
+        priceSell: 0,
+        isAvailable: false,
+      ),
+    );
+
+    final TextEditingController quantityController = TextEditingController(
+      text: item.quantity.toString(),
+    );
+    final String unit = menu.weightUnit ?? 'pcs';
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      barrierLabel: 'Input Quantity ${menu.name}',
+      transitionDuration: const Duration(milliseconds: 300),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curvedAnimation = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutBack,
+        );
+
+        return ScaleTransition(
+          scale: curvedAnimation,
+          child: FadeTransition(
+            opacity: animation.drive(
+              Tween<double>(
+                begin: 0,
+                end: 1,
+              ).chain(CurveTween(curve: Curves.easeIn)),
+            ),
+            child: child,
+          ),
+        );
+      },
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return AlertDialog(
+          title: Text(
+            'Ubah Kuantitas ${menu.name}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16),
+          ),
+          content: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.remove_circle_outline),
+                onPressed: () {
+                  double current =
+                      double.tryParse(quantityController.text) ?? 1;
+                  if (current <= 1.0) {
+                    current -= 0.1;
+                    quantityController.text = current.toStringAsFixed(1);
+                  } else {
+                    current -= 1.0;
+                    quantityController.text = current.toStringAsFixed(1);
+                  }
+                },
+              ),
+              Expanded(
+                child: TextField(
+                  controller: quantityController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  textAlign: TextAlign.center,
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    suffixText: unit,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline),
+                onPressed: () {
+                  double current =
+                      double.tryParse(quantityController.text) ?? 1;
+                  if (current >= 10.0) {
+                    current += 0.1;
+                    quantityController.text = current.toStringAsFixed(1);
+                  }
+                  current += 1.0;
+                  quantityController.text = current.toStringAsFixed(1);
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () => Navigator.pop(context),
+            ),
+            TextButton(
+              child: const Text('Simpan'),
+              onPressed: () {
+                item.quantity = double.tryParse(quantityController.text) ?? 1.0;
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showCustomerSelectionDialog(
@@ -253,10 +364,7 @@ class _CartPageState extends State<CartPage> {
                         child: const Icon(Icons.delete, color: Colors.white),
                       ),
                       child: ListTile(
-                        onTap: () => Provider.of<OrderProvider>(
-                          context,
-                          listen: false,
-                        ).updateItemQuantity(item.menuId, 1),
+                        onTap: () => _showEditQuantityDialog(context, item),
                         title: Text(menu.name),
                         subtitle: Text(
                           '${item.quantity.toStringAsFixed(1)} ${menu.weightUnit ?? 'pcs'} x Rp ${_formatCurrency(item.price)}',
@@ -323,14 +431,7 @@ class _CartPageState extends State<CartPage> {
                         decoration: const InputDecoration(
                           labelText: 'Nomor Meja (opsional)',
                         ),
-                                                keyboardType: TextInputType.number,
-                      ),
-                      TextFormField(
-                        controller: _notesController,
-                        decoration: const InputDecoration(
-                          labelText: 'Catatan (opsional)',
-                        ),
-                        maxLines: 2,
+                        keyboardType: TextInputType.number,
                       ),
                       TextFormField(
                         controller: _guestCountController,
@@ -338,6 +439,13 @@ class _CartPageState extends State<CartPage> {
                           labelText: 'Jumlah Tamu (opsional)',
                         ),
                         keyboardType: TextInputType.number,
+                      ),
+                      TextFormField(
+                        controller: _notesController,
+                        decoration: const InputDecoration(
+                          labelText: 'Catatan (opsional)',
+                        ),
+                        maxLines: 2,
                       ),
                       const SizedBox(height: 16),
                       Row(

@@ -1,4 +1,5 @@
-import 'package:aplikasi_kasir_seafood/models/order_item.dart' as model_order_item;
+import 'package:aplikasi_kasir_seafood/models/order_item.dart'
+    as model_order_item;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -28,7 +29,11 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   double get _totalAmount => widget.order.totalAmount ?? 0.0;
-  double get _cashGiven => double.tryParse(_cashController.text.replaceAll('.', '').replaceAll(',', '')) ?? 0.0;
+  double get _cashGiven =>
+      double.tryParse(
+        _cashController.text.replaceAll('.', '').replaceAll(',', ''),
+      ) ??
+      0.0;
   double get _changeAmount => _cashGiven - _totalAmount;
 
   @override
@@ -56,14 +61,14 @@ class _PaymentPageState extends State<PaymentPage> {
       return;
     }
 
-    Provider.of<OrderListProvider>(context, listen: false).updateOrderStatus(
-      widget.order.id!,
-      'Selesai',
-    );
+    Provider.of<OrderListProvider>(
+      context,
+      listen: false,
+    ).updateOrderStatus(widget.order.id!, 'Selesai');
 
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
     final items = List<model_order_item.OrderItem>.from(orderProvider.cart);
-    
+
     Provider.of<OrderProvider>(context, listen: false).clearCart();
 
     Navigator.pushReplacement(
@@ -84,8 +89,10 @@ class _PaymentPageState extends State<PaymentPage> {
       _cashController.clear();
     } else if (value == '<') {
       if (_cashController.text.isNotEmpty) {
-        _cashController.text =
-            _cashController.text.substring(0, _cashController.text.length - 1);
+        _cashController.text = _cashController.text.substring(
+          0,
+          _cashController.text.length - 1,
+        );
       }
     } else if (value == 'pas') {
       _cashController.text = _totalAmount.toStringAsFixed(0);
@@ -177,22 +184,27 @@ class _PaymentPageState extends State<PaymentPage> {
                   const Text('Total: Rp', style: TextStyle(fontSize: 20)),
                   Text(
                     _formatCurrency(_totalAmount),
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   const Text('Dibayarkan:', style: TextStyle(fontSize: 20)),
                   Text(
                     'Rp ${_cashController.text.isNotEmpty ? _formatCurrency(_cashGiven) : '0'}',
-                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Wrap(
                     spacing: 8.0,
                     children: [
                       _buildPaymentMethodChip('Tunai', Icons.money),
-                      _buildPaymentMethodChip('Debit', Icons.credit_card),
+                      _buildPaymentMethodChip('Transfer', Icons.attach_money),
                       _buildPaymentMethodChip('QRIS', Icons.qr_code),
-                      _buildPaymentMethodChip('Piutang', Icons.list),
                     ],
                   ),
                   const SizedBox(height: 24),
@@ -220,7 +232,10 @@ class _PaymentPageState extends State<PaymentPage> {
                     _buildKeypadButton('7'),
                     _buildKeypadButton('8'),
                     _buildKeypadButton('9'),
-                    _buildFunctionButton(Icons.backspace, () => _onKeyPress('<')),
+                    _buildFunctionButton(
+                      Icons.backspace,
+                      () => _onKeyPress('<'),
+                    ),
                   ],
                 ),
                 Row(
@@ -236,7 +251,10 @@ class _PaymentPageState extends State<PaymentPage> {
                     _buildKeypadButton('1'),
                     _buildKeypadButton('2'),
                     _buildKeypadButton('3'),
-                    _buildFunctionButton(Icons.monetization_on, () => _onKeyPress('pas')),
+                    _buildFunctionButton(
+                      Icons.monetization_on,
+                      () => _onKeyPress('pas'),
+                    ),
                   ],
                 ),
                 Row(

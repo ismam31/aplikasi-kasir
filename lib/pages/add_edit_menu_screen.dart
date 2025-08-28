@@ -24,7 +24,6 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
   late TextEditingController _descController;
   late TextEditingController _priceBaseController;
   late TextEditingController _priceSellController;
-  late TextEditingController _stockController;
   late TextEditingController _weightUnitController;
   model_category.Category? _selectedCategory;
   String? _selectedWeightUnit;
@@ -32,7 +31,7 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
   final ImagePicker _picker = ImagePicker();
   late bool _isAvailable = true;
 
-  final List<String> _weightUnits = ['gram', 'kg', 'ml', 'liter', 'pcs'];
+  final List<String> _weightUnits = ['gram', 'kg', 'porsi', 'pcs'];
 
   @override
   void initState() {
@@ -76,7 +75,6 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
     _descController.dispose();
     _priceBaseController.dispose();
     _priceSellController.dispose();
-    _stockController.dispose();
     _weightUnitController.dispose();
     super.dispose();
   }

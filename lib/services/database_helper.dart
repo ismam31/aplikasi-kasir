@@ -27,7 +27,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -35,119 +35,81 @@ class DatabaseHelper {
 
   Future<void> _onCreate(Database db, int version) async {
     await db.execute('''
-      CREATE TABLE settings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        resto_name TEXT,
-        resto_logo TEXT,
-        resto_address TEXT,
-        receipt_message TEXT
-      )
-    ''');
+    CREATE TABLE settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      resto_name TEXT,
+      resto_logo TEXT,
+      resto_address TEXT,
+      receipt_message TEXT
+    )
+  ''');
 
     await db.execute('''
-      CREATE TABLE customers (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        table_number TEXT,
-        notes TEXT
-      )
-    ''');
+    CREATE TABLE customers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      table_number TEXT,
+      notes TEXT,
+      guest_count INTEGER
+    )
+  ''');
 
     await db.execute('''
-      CREATE TABLE categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT
-      )
-    ''');
+    CREATE TABLE categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT
+    )
+  ''');
 
     await db.execute('''
-      CREATE TABLE expenses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        description TEXT NOT NULL,
-        amount REAL NOT NULL,
-        date TEXT NOT NULL
-      )
-    ''');
+    CREATE TABLE expenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      description TEXT NOT NULL,
+      amount REAL NOT NULL,
+      date TEXT NOT NULL
+    )
+  ''');
 
     await db.execute('''
-      CREATE TABLE menu (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        description TEXT,
-        price_base REAL,
-        price_sell REAL NOT NULL,
-        stock INTEGER,
-        weight_unit TEXT,
-        image TEXT,
-        category_id INTEGER,
-        FOREIGN KEY (category_id) REFERENCES categories(id)
-      )
-    ''');
+    CREATE TABLE menu (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      price_base REAL,
+      price_sell REAL NOT NULL,
+      is_available INTEGER NOT NULL DEFAULT 1,
+      weight_unit TEXT,
+      image TEXT,
+      category_id INTEGER,
+      FOREIGN KEY (category_id) REFERENCES categories(id)
+    )
+  ''');
 
     await db.execute('''
-      CREATE TABLE orders (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        customer_id INTEGER,
-        payment_method TEXT,
-        total_amount REAL,
-        order_status TEXT NOT NULL,
-        order_time TEXT NOT NULL,
-        FOREIGN KEY (customer_id) REFERENCES customers(id)
-      )
-    ''');
+    CREATE TABLE orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER,
+      payment_method TEXT,
+      total_amount REAL,
+      order_status TEXT NOT NULL,
+      order_time TEXT NOT NULL,
+      FOREIGN KEY (customer_id) REFERENCES customers(id)
+    )
+  ''');
 
     await db.execute('''
-      CREATE TABLE order_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        order_id INTEGER NOT NULL,
-        menu_id INTEGER NOT NULL,
-        quantity REAL NOT NULL,
-        price REAL NOT NULL,
-        FOREIGN KEY (order_id) REFERENCES orders(id),
-        FOREIGN KEY (menu_id) REFERENCES menu(id)
-      )
-    ''');
+    CREATE TABLE order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      menu_id INTEGER NOT NULL,
+      quantity REAL NOT NULL,
+      price REAL NOT NULL,
+      FOREIGN KEY (order_id) REFERENCES orders(id),
+      FOREIGN KEY (menu_id) REFERENCES menu(id)
+    )
+  ''');
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      // Tambahkan kolom guest_count ke tabel customers
-      await db.execute('ALTER TABLE customers ADD COLUMN guest_count INTEGER');
-    }
-    if (oldVersion < 3) {
-      // Ubah tipe data kolom is_available di tabel menu
-      await db.execute('''
-        CREATE TABLE menu_new (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          description TEXT,
-          price_base REAL,
-          price_sell REAL NOT NULL,
-          is_available INTEGER NOT NULL DEFAULT 1,
-          weight_unit TEXT,
-          image TEXT,
-          category_id INTEGER,
-          FOREIGN KEY (category_id) REFERENCES categories(id)
-        )
-      ''');
-      final tables = await db.rawQuery(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='menu'",
-      );
-      if (tables.isNotEmpty) {
-        await db.execute('''
-          INSERT INTO menu_new (
-            id, name, description, price_base, price_sell, is_available, weight_unit, image, category_id
-          )
-          SELECT 
-            id, name, description, price_base, price_sell,
-            CASE WHEN stock > 0 THEN 1 ELSE 0 END,
-            weight_unit, image, category_id
-          FROM menu
-        ''');
-      }
-      await db.execute('DROP TABLE menu');
-      await db.execute('ALTER TABLE menu_new RENAME TO menu');
-    }
-    // Jika ada migrasi lain di masa depan, bisa ditambahkan di sini
   }
 }

@@ -158,7 +158,7 @@ class _OrderPageState extends State<OrderPage> {
                                   },
                                 ),
                               );
-                            }).toList(),
+                            }),
                           ],
                         ),
                       ),
@@ -183,7 +183,10 @@ class _OrderPageState extends State<OrderPage> {
                           },
                         )
                       : ListView.builder(
-                          padding: const EdgeInsets.all(16.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 0.0,
+                          ),
                           itemCount: filteredMenus.length,
                           itemBuilder: (context, index) {
                             final menu = filteredMenus[index];
@@ -201,43 +204,62 @@ class _OrderPageState extends State<OrderPage> {
   }
 
   Widget _buildMenuItemCard(BuildContext context, model_menu.Menu menu) {
+    final isAvailable = menu.isAvailable; // fallback true
     return InkWell(
-      onTap: () {
-        _showQuantityDialog(context, menu);
-      },
+      onTap: isAvailable ? () => _showQuantityDialog(context, menu) : null,
       child: Card(
         elevation: 4,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: Stack(
           children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(12),
+                    ),
+                    child: menu.image != null && menu.image!.isNotEmpty
+                        ? Image.file(File(menu.image!), fit: BoxFit.cover)
+                        : Image.asset(
+                            'assets/placeholder.png',
+                            fit: BoxFit.cover,
+                          ),
+                  ),
                 ),
-                child: menu.image != null && menu.image!.isNotEmpty
-                    ? Image.file(File(menu.image!), fit: BoxFit.cover)
-                    : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    menu.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        menu.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Rp ${_formatCurrency(menu.priceSell)}'),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Rp ${_formatCurrency(menu.priceSell)}',
-                    style: const TextStyle(color: Colors.black),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
+            if (!isAvailable)
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Center(
+                  child: Text(
+                    'Tidak Tersedia',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -245,27 +267,53 @@ class _OrderPageState extends State<OrderPage> {
   }
 
   Widget _buildMenuItemListTile(BuildContext context, model_menu.Menu menu) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: ListTile(
-        leading: SizedBox(
-          width: 60,
-          height: 60,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: menu.image != null && menu.image!.isNotEmpty
-                ? Image.file(File(menu.image!), fit: BoxFit.cover)
-                : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
+    final isAvailable = menu.isAvailable;
+    return Column(
+      children: [
+        ListTile(
+          leading: SizedBox(
+            width: 60,
+            height: 60,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: menu.image != null && menu.image!.isNotEmpty
+                  ? Image.file(File(menu.image!), fit: BoxFit.cover)
+                  : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
+            ),
+          ),
+          title: Text(
+            menu.name,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isAvailable ? Colors.black : Colors.grey,
+            ),
+          ),
+          subtitle: Text(
+            isAvailable
+                ? 'Rp ${_formatCurrency(menu.priceSell)}'
+                : 'Tidak Tersedia',
+            style: TextStyle(color: isAvailable ? Colors.black : Colors.red),
+          ),
+          onTap: isAvailable ? () => _showQuantityDialog(context, menu) : null,
+          trailing: Container(
+            decoration: BoxDecoration(
+              color: isAvailable ? Colors.green : Colors.red,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Text(
+              isAvailable ? 'Tersedia' : 'Tidak Tersedia',
+              style: const TextStyle(color: Colors.white),
+            ),
           ),
         ),
-        title: Text(
-          menu.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+        const Divider(
+          // 🔹 ini garis bawahnya
+          thickness: 1,
+          height: 1,
+          color: Colors.grey,
         ),
-        subtitle: Text('Rp ${_formatCurrency(menu.priceSell)}'),
-        onTap: () => _showQuantityDialog(context, menu),
-      ),
+      ],
     );
   }
 
@@ -318,10 +366,14 @@ class _OrderPageState extends State<OrderPage> {
                   IconButton(
                     icon: const Icon(Icons.remove_circle_outline),
                     onPressed: () {
-                      int current = int.tryParse(quantityController.text) ?? 1;
-                      if (current > 1) {
-                        current--;
-                        quantityController.text = current.toString();
+                      double current =
+                          double.tryParse(quantityController.text) ?? 1;
+                      if (current <= 1.0) {
+                        current -= 0.1;
+                        quantityController.text = current.toStringAsFixed(1);
+                      } else {
+                        current -= 1.0;
+                        quantityController.text = current.toStringAsFixed(1);
                       }
                     },
                   ),
@@ -341,9 +393,15 @@ class _OrderPageState extends State<OrderPage> {
                   IconButton(
                     icon: const Icon(Icons.add_circle_outline),
                     onPressed: () {
-                      int current = int.tryParse(quantityController.text) ?? 1;
-                      current++;
-                      quantityController.text = current.toString();
+                      double current =
+                          double.tryParse(quantityController.text) ?? 1;
+                      if (current < 1.0) {
+                        current += 0.1;
+                        quantityController.text = current.toStringAsFixed(1);
+                      } else {
+                        current += 1.0;
+                        quantityController.text = current.toStringAsFixed(1);
+                      }
                     },
                   ),
                 ],
