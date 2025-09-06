@@ -1,11 +1,11 @@
 import 'package:aplikasi_kasir_seafood/models/order_item.dart'
     as model_order_item;
+import 'package:aplikasi_kasir_seafood/services/order_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
 import 'package:aplikasi_kasir_seafood/pages/success_page.dart';
-import 'package:aplikasi_kasir_seafood/providers/order_list_provider.dart';
 import 'package:aplikasi_kasir_seafood/providers/order_provider.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_notification.dart';
@@ -50,7 +50,11 @@ class _PaymentPageState extends State<PaymentPage> {
     super.dispose();
   }
 
-  void _completePayment() {
+  Future<void> _completePayment() async {
+    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    final orderService = OrderService();
+    final items = List<model_order_item.OrderItem>.from(orderProvider.cart);
+
     if (_selectedPaymentMethod == 'Tunai' && _changeAmount < 0) {
       CustomNotification.show(
         context,
@@ -61,24 +65,28 @@ class _PaymentPageState extends State<PaymentPage> {
       return;
     }
 
-    Provider.of<OrderListProvider>(
-      context,
-      listen: false,
-    ).updateOrderStatus(widget.order.id!, 'Selesai');
+    final newOrder = model_order.Order(
+      customerId: widget.order.customerId,
+      orderStatus: 'Selesai',
+      paymentMethod: _selectedPaymentMethod,
+      orderTime: DateTime.now().toIso8601String(),
+      totalAmount: _totalAmount,
+    );
 
-    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
-    final items = List<model_order_item.OrderItem>.from(orderProvider.cart);
+    // Menyimpan order ke DB dan mendapatkan ID baru
+    final newOrderId = await orderService.insertOrder(newOrder, items);
 
-    Provider.of<OrderProvider>(context, listen: false).clearCart();
+    // Membersihkan cart setelah disave
+    orderProvider.clearCart();
 
+    // Pindah ke SuccessPage dengan orderId baru
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => SuccessPage(
+          orderId: newOrderId,
           changeAmount: _changeAmount,
-          order: widget.order,
           cashGiven: _cashGiven,
-          items: items,
         ),
       ),
     );
@@ -164,16 +172,7 @@ class _PaymentPageState extends State<PaymentPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: CustomAppBar(
-        title: 'Pembayaran',
-        showBackButton: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.check, color: Colors.green),
-            onPressed: _completePayment,
-          ),
-        ],
-      ),
+      appBar: const CustomAppBar(title: 'Pembayaran', showBackButton: true),
       body: Column(
         children: [
           Expanded(
@@ -204,7 +203,6 @@ class _PaymentPageState extends State<PaymentPage> {
                     children: [
                       _buildPaymentMethodChip('Tunai', Icons.money),
                       _buildPaymentMethodChip('Transfer', Icons.attach_money),
-                      _buildPaymentMethodChip('QRIS', Icons.qr_code),
                     ],
                   ),
                   const SizedBox(height: 24),

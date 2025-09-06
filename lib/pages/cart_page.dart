@@ -71,18 +71,16 @@ class _CartPageState extends State<CartPage> {
     return formatter.format(amount);
   }
 
-  void _saveOrder(BuildContext context, {bool isPaid = false}) async {
-    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+  // ✅ Fungsi baru untuk menyimpan atau memperbarui data pelanggan
+  Future<int?> _saveCustomerData() async {
     final customerProvider = Provider.of<CustomerProvider>(
       context,
       listen: false,
     );
 
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-
-      int? customerId = _selectedCustomer?.id;
-      if (customerId == null && _customerNameController.text.isNotEmpty) {
+    int? customerId = _selectedCustomer?.id;
+    if (_customerNameController.text.isNotEmpty) {
+      if (customerId == null) {
         final newCustomer = model_customer.Customer(
           name: _customerNameController.text.trim(),
           tableNumber: _tableNumberController.text.isEmpty
@@ -94,7 +92,7 @@ class _CartPageState extends State<CartPage> {
           guestCount: int.tryParse(_guestCountController.text),
         );
         customerId = await customerProvider.addCustomer(newCustomer);
-      } else if (customerId != null) {
+      } else {
         final updatedCustomer = model_customer.Customer(
           id: customerId,
           name: _customerNameController.text.trim(),
@@ -108,6 +106,18 @@ class _CartPageState extends State<CartPage> {
         );
         await customerProvider.updateCustomer(updatedCustomer);
       }
+    }
+    return customerId;
+  }
+
+  void _saveOrder(BuildContext context, {bool isPaid = false}) async {
+    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+
+      // ✅ Ambil customerId yang valid setelah data disimpan
+      int? customerId = await _saveCustomerData();
 
       final status = isPaid ? 'Selesai' : 'Diproses';
       final paymentMethod = isPaid ? _selectedPaymentMethod : null;
@@ -292,18 +302,19 @@ class _CartPageState extends State<CartPage> {
   void _showPaymentDialog(BuildContext context) async {
     final orderProvider = Provider.of<OrderProvider>(context, listen: false);
 
-    final latestOrder = orderProvider.cart.isNotEmpty
-        ? orderProvider.cart.first
-        : null;
-
-    if (latestOrder != null) {
+    // ✅ Ambil customerId yang valid setelah data disimpan
+    int? customerId = await _saveCustomerData();
+    
+    // Pastikan ada item di keranjang sebelum melanjutkan
+    if (orderProvider.cart.isNotEmpty) {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => PaymentPage(
             order: model_order.Order(
-              id: latestOrder.orderId,
+              id: orderProvider.editingOrderId,
               totalAmount: orderProvider.totalAmount,
+              customerId: customerId, // ✅ Gunakan customerId yang sudah valid
               orderStatus: 'Diproses',
               orderTime: DateTime.now().toIso8601String(),
             ),
@@ -365,7 +376,7 @@ class _CartPageState extends State<CartPage> {
                       ),
                       child: ListTile(
                         onTap: () => _showEditQuantityDialog(context, item),
-                        title: Text(menu.name),
+                        title: Text(item.menuName),
                         subtitle: Text(
                           '${item.quantity.toStringAsFixed(1)} ${menu.weightUnit ?? 'pcs'} x Rp ${_formatCurrency(item.price)}',
                         ),

@@ -4,12 +4,14 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final bool showBackButton;
   final List<Widget>? actions;
-  
+  final double height;
+
   const CustomAppBar({
     super.key,
     required this.title,
     this.showBackButton = false,
     this.actions,
+    this.height = kToolbarHeight + 30,
   });
 
   @override
@@ -20,6 +22,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         bottomRight: Radius.circular(20),
       ),
       child: Container(
+        height: height,
         color: Colors.blue.shade800,
         padding: EdgeInsets.only(
           top: MediaQuery.of(context).padding.top,
@@ -59,5 +62,5 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => Size.fromHeight(height);
 }

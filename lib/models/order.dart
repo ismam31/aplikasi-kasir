@@ -36,4 +36,6 @@ class Order {
       'order_time': orderTime,
     };
   }
+
+  copyWith({required String orderStatus, required String paymentMethod}) {}
 }
