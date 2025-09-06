@@ -1,28 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:aplikasi_kasir_seafood/widgets/custom_drawer.dart';
 import 'package:aplikasi_kasir_seafood/pages/order_page.dart';
 import 'package:aplikasi_kasir_seafood/pages/receipt_preview_page.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
-import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
-import 'package:aplikasi_kasir_seafood/models/customer.dart';
-import 'package:aplikasi_kasir_seafood/models/order_item.dart';
-import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:aplikasi_kasir_seafood/pages/print_receipt_page.dart';
 
 class SuccessPage extends StatefulWidget {
   final double changeAmount;
-  final model_order.Order? order;
   final double cashGiven;
-  final Customer? customer;
-  final List<OrderItem> items;
+  final int orderId;
 
   const SuccessPage({
     super.key,
     required this.changeAmount,
-    this.order,
     required this.cashGiven,
-    this.customer,
-    required this.items,
+    required this.orderId,
   });
 
   @override
@@ -30,31 +23,6 @@ class SuccessPage extends StatefulWidget {
 }
 
 class SuccessPageState extends State<SuccessPage> {
-  BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
-  BluetoothDevice? selectedDevice;
-  List<BluetoothDevice> devices = [];
-  bool connected = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _getDevices();
-  }
-
-  void _getDevices() async {
-    final List<BluetoothDevice> pairedDevices = await bluetooth
-        .getBondedDevices();
-    setState(() {
-      devices = pairedDevices;
-    });
-
-    bluetooth.isConnected.then((isConnected) {
-      setState(() {
-        connected = isConnected ?? false;
-      });
-    });
-  }
-
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,###', 'id_ID');
     return formatter.format(amount);
@@ -63,6 +31,7 @@ class SuccessPageState extends State<SuccessPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      drawer: const CustomDrawer(),
       appBar: const CustomAppBar(
         title: 'Pembayaran Berhasil',
         showBackButton: false,
@@ -126,19 +95,16 @@ class SuccessPageState extends State<SuccessPage> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    if (widget.order != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PrintReceiptPage(
-                            order: widget.order!,
-                            items: widget.items,
-                            cashGiven: widget.cashGiven,
-                            changeAmount: widget.changeAmount,
-                          ),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PrintReceiptPage(
+                          orderId: widget.orderId,
+                          cashGiven: widget.cashGiven,
+                          changeAmount: widget.changeAmount,
                         ),
-                      );
-                    }
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.print),
                   label: const Text(
@@ -156,18 +122,16 @@ class SuccessPageState extends State<SuccessPage> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: () {
-                    if (widget.order != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ReceiptPreviewPage(
-                            order: widget.order!,
-                            cashGiven: widget.cashGiven,
-                            changeAmount: widget.changeAmount,
-                          ),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ReceiptPreviewPage(
+                          orderId: widget.orderId,
+                          cashGiven: widget.cashGiven,
+                          changeAmount: widget.changeAmount,
                         ),
-                      );
-                    }
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.remove_red_eye),
                   label: const Text(

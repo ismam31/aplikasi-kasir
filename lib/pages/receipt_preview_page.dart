@@ -1,25 +1,64 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
-import 'package:aplikasi_kasir_seafood/models/menu.dart' as model_menu;
-import 'package:aplikasi_kasir_seafood/models/order_item.dart' as model_order_item;
-import 'package:aplikasi_kasir_seafood/providers/order_list_provider.dart';
-import 'package:aplikasi_kasir_seafood/providers/menu_provider.dart';
+import 'package:aplikasi_kasir_seafood/models/order_item.dart'
+    as model_order_item;
+import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
 import 'package:aplikasi_kasir_seafood/providers/customer_provider.dart';
+import 'package:aplikasi_kasir_seafood/providers/setting_provider.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
+import 'package:aplikasi_kasir_seafood/services/order_service.dart';
 
-class ReceiptPreviewPage extends StatelessWidget {
-  final model_order.Order order;
+class ReceiptPreviewPage extends StatefulWidget {
+  final int orderId;
   final double cashGiven;
   final double changeAmount;
 
   const ReceiptPreviewPage({
     super.key,
-    required this.order,
+    required this.orderId,
     required this.cashGiven,
     required this.changeAmount,
   });
+
+  @override
+  State<ReceiptPreviewPage> createState() => _ReceiptPreviewPageState();
+}
+
+class _ReceiptPreviewPageState extends State<ReceiptPreviewPage> {
+  final OrderService _orderService = OrderService();
+  model_order.Order? order;
+  List<model_order_item.OrderItem> items = [];
+  model_customer.Customer? customer;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReceiptData();
+  }
+
+  Future<void> _loadReceiptData() async {
+    final fetchedOrder = await _orderService.getOrderById(widget.orderId);
+    final fetchedItems = await _orderService.getOrderItems(widget.orderId);
+    model_customer.Customer? fetchedCustomer;
+    if (fetchedOrder?.customerId != null) {
+      final customerProvider =
+          Provider.of<CustomerProvider>(context, listen: false);
+      fetchedCustomer =
+          await customerProvider.getCustomerById(fetchedOrder!.customerId!);
+    }
+
+    if (!mounted) return;
+    setState(() {
+      order = fetchedOrder;
+      items = fetchedItems;
+      customer = fetchedCustomer;
+      _isLoading = false;
+    });
+  }
 
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,###', 'id_ID');
@@ -33,111 +72,158 @@ class ReceiptPreviewPage extends StatelessWidget {
         title: 'Pratinjau Struk',
         showBackButton: true,
       ),
-      body: Consumer3<OrderListProvider, MenuProvider, CustomerProvider>(
-        builder: (context, orderListProvider, menuProvider, customerProvider, child) {
-          if (orderListProvider.isLoading || menuProvider.isLoading || customerProvider.isLoading) {
+      body: Consumer<SettingProvider>(
+        builder: (context, settingProvider, child) {
+          if (_isLoading || settingProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          return FutureBuilder<List<model_order_item.OrderItem>>(
-            future: orderListProvider.getOrderItems(order.id!),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+          if (order == null) {
+            return const Center(child: Text("Data pesanan tidak ditemukan."));
+          }
 
-              if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              }
+          final settings = settingProvider.settings;
 
-              final items = snapshot.data ?? [];
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 🔹 Logo Restoran
+                if (settings?.restoLogo != null && settings!.restoLogo!.isNotEmpty)
+                  Center(
+                    child: Image.file(
+                      File(settings.restoLogo!),
+                      height: 100,
+                    ),
+                  ),
+                // 🔹 Nama Restoran
+                Center(
+                  child: Text(
+                    settings?.restoName ?? "Nama Restoran",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                // 🔹 Alamat Restoran
+                if (settings?.restoAddress != null && settings!.restoAddress!.isNotEmpty)
+                  Center(
+                    child: Text(
+                      settings.restoAddress!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                const Divider(),
+                // 🔹 Informasi Order
+                Text(
+                  'Tanggal: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.parse(order!.orderTime))}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                Text(
+                  'Kasir: Admin', // nanti bisa ambil dari user login
+                  style: const TextStyle(fontSize: 12),
+                ),
+                Text(
+                  'No. Order: ${order!.id}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                if (customer != null) ...[
+                  Text(
+                    'Pelanggan: ${customer!.name}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  if (customer!.tableNumber != null && customer!.tableNumber!.isNotEmpty)
+                    Text(
+                      'Meja: ${customer!.tableNumber}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                ],
+                const Divider(),
+                // 🔹 Item Pesanan
+                ListView.builder(
+                  itemCount: items.length,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return Column(
+                      children: [
+                        ListTile(
+                          dense: true,
+                          title: Text(item.menuName),
+                          subtitle: Text(
+                            'x${item.quantity} Rp ${_formatCurrency(item.price)}',
+                          ),
+                          trailing: Text(
+                            'Rp ${_formatCurrency(item.price * item.quantity)}',
+                          ),
+                        ),
+                        const Divider(height: 1),
+                      ],
+                    );
+                  },
+                ),
+                const Divider(),
+                // 🔹 Total & Pembayaran
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Center(
-                      child: Text(
-                        'Warung Tikungan', // Ganti dengan data dari SettingProvider
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const Center(
-                      child: Text('Jl. QW29+6J3, Patimban, Kec. Pusakanagara', style: TextStyle(fontSize: 12)),
-                    ),
-                    const Center(
-                      child: Text('Kabupaten Subang, Jawa Barat 41255, Indonesia', style: TextStyle(fontSize: 12)),
-                    ),
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    Text('Tanggal: ${DateFormat('yyyy-MM-dd HH:mm').format(DateTime.parse(order.orderTime))}', style: const TextStyle(fontSize: 14)),
-                    Text('Waktu: ${DateFormat('HH:mm').format(DateTime.parse(order.orderTime))}', style: const TextStyle(fontSize: 14)),
-                    Text('Kasir: Admin', style: const TextStyle(fontSize: 14)), // Ganti dengan data pengguna login
-                    Text('No. Order: ${order.id}', style: const TextStyle(fontSize: 14)),
-                    const Divider(),
-                    ...items.map((item) {
-                      final menu = menuProvider.menus.firstWhere(
-                        (m) => m.id == item.menuId,
-                        orElse: () => model_menu.Menu(
-                          id: 0,
-                          name: 'Menu Tidak Ditemukan',
-                          priceSell: 0,
-                          isAvailable: false,
-                        ),
-                      );
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${item.quantity.toStringAsFixed(1)} x ${menu.name}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  Text('Rp ${_formatCurrency(item.price)}', style: const TextStyle(fontSize: 12)),
-                                ],
-                              ),
-                            ),
-                            Text('Rp ${_formatCurrency(item.price * item.quantity)}'),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                    const Divider(),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Total'),
-                        Text('Rp ${_formatCurrency(order.totalAmount ?? 0.0)}'),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Bayar'),
-                        Text('Rp ${_formatCurrency(cashGiven)}'),
-                      ],
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Kembali'),
-                        Text('Rp ${_formatCurrency(changeAmount)}'),
-                      ],
-                    ),
-                    const Divider(),
-                    const Center(
-                      child: Text('Terima kasih sudah berkunjung!', style: TextStyle(fontSize: 14)),
+                    const Text('Total', style: TextStyle(fontSize: 12)),
+                    Text(
+                      'Rp ${_formatCurrency(order!.totalAmount ?? 0.0)}',
+                      style: const TextStyle(fontSize: 12),
                     ),
                   ],
                 ),
-              );
-            },
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Bayar',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    Text(
+                      'Rp ${_formatCurrency(widget.cashGiven)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Kembali',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    Text(
+                      'Rp ${_formatCurrency(widget.changeAmount)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                // 🔹 Pesan Kaki Struk
+                if (settings?.receiptMessage != null && settings!.receiptMessage!.isNotEmpty)
+                  Center(
+                    child: Text(
+                      settings.receiptMessage!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  )
+                else
+                  const Center(
+                    child: Text(
+                      'Terima kasih sudah berkunjung!',
+                      style: TextStyle(fontSize: 13),
+                    ),
+                  ),
+              ],
+            ),
           );
         },
       ),

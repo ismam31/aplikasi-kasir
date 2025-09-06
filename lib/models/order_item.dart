@@ -22,7 +22,7 @@ class OrderItem {
       menuId: map['menu_id'],
       quantity: map['quantity'],
       price: map['price'],
-      menuName: map['menu_name'],
+      menuName: map['menu_name'] as String? ?? 'Menu tidak diketahui',
     );
   }
 

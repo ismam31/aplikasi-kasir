@@ -15,12 +15,16 @@ class CustomerProvider with ChangeNotifier {
     loadCustomers();
   }
 
+  Future<model_customer.Customer?> getCustomerById(int id) async {
+    return await _customerService.getCustomerById(id);
+  }
+
   Future<void> loadCustomers() async {
     _isLoading = true;
     notifyListeners();
 
     _customers = await _customerService.getCustomers();
-    
+
     _isLoading = false;
     notifyListeners();
   }
@@ -37,6 +41,9 @@ class CustomerProvider with ChangeNotifier {
 
   Future<int> addCustomer(model_customer.Customer customer) async {
     final int id = await _customerService.insertCustomer(customer);
+    debugPrint(
+      "✅ Customer baru disimpan ke DB dengan id $id, nama: ${customer.name}",
+    );
     await loadCustomers();
     return id;
   }

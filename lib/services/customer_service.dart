@@ -10,6 +10,32 @@ class CustomerService {
     return await db.insert('customers', customer.toMap());
   }
 
+  Future<model_customer.Customer?> getCustomerById(int id) async {
+  final db = await _dbHelper.database;
+  final List<Map<String, dynamic>> maps = await db.query(
+    'customers',
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+
+  if (maps.isNotEmpty) {
+    return model_customer.Customer.fromMap(maps.first);
+  }
+  return null;
+}
+  // Future<model_customer.Customer?> getCustomer(int id) async {
+  //   final db = await _dbHelper.database;
+  //   final List<Map<String, dynamic>> maps = await db.query(
+  //     'customers',
+  //     where: 'id = ?',
+  //     whereArgs: [id],
+  //   );
+  //   if (maps.isNotEmpty) {
+  //     return model_customer.Customer.fromMap(maps.first);
+  //   }
+  //   return null;
+  // }
+
   // Metode untuk mendapatkan semua data pelanggan
   Future<List<model_customer.Customer>> getCustomers() async {
     final db = await _dbHelper.database;
@@ -18,7 +44,8 @@ class CustomerService {
       final customerMap = Map<String, dynamic>.from(maps[i]);
       // Pastikan guest_count diubah ke int jika perlu
       if (customerMap['guest_count'] is double) {
-        customerMap['guest_count'] = (customerMap['guest_count'] as double).toInt();
+        customerMap['guest_count'] = (customerMap['guest_count'] as double)
+            .toInt();
       }
       return model_customer.Customer.fromMap(customerMap);
     });
@@ -38,10 +65,6 @@ class CustomerService {
   // Metode untuk menghapus data pelanggan
   Future<int> deleteCustomer(int id) async {
     final db = await _dbHelper.database;
-    return await db.delete(
-      'customers',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.delete('customers', where: 'id = ?', whereArgs: [id]);
   }
 }

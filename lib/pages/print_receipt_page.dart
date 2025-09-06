@@ -1,25 +1,24 @@
+import 'package:aplikasi_kasir_seafood/widgets/custom_notification.dart';
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
-import 'package:image/image.dart' as img;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
-import 'package:aplikasi_kasir_seafood/providers/customer_provider.dart';
+import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
 import 'package:aplikasi_kasir_seafood/models/order_item.dart';
+import 'package:aplikasi_kasir_seafood/providers/setting_provider.dart';
+import 'package:aplikasi_kasir_seafood/services/order_service.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:aplikasi_kasir_seafood/models/setting.dart' as model_setting;
 
 class PrintReceiptPage extends StatefulWidget {
-  final model_order.Order order;
-  final List<OrderItem> items;
+  final int orderId;
   final double cashGiven;
   final double changeAmount;
 
   const PrintReceiptPage({
     super.key,
-    required this.order,
-    required this.items,
+    required this.orderId,
     required this.cashGiven,
     required this.changeAmount,
   });
@@ -29,22 +28,69 @@ class PrintReceiptPage extends StatefulWidget {
 }
 
 class _PrintReceiptPageState extends State<PrintReceiptPage> {
-  BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
+  final BlueThermalPrinter bluetooth = BlueThermalPrinter.instance;
+  final OrderService _orderService = OrderService();
+
   BluetoothDevice? selectedDevice;
   List<BluetoothDevice> devices = [];
   bool connected = false;
+
+  model_order.Order? order;
+  List<OrderItem> items = [];
+  model_customer.Customer? customer;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _getDevices();
+    _loadOrderData();
+  }
+
+  Future<void> _loadOrderData() async {
+    try {
+      // ✅ Ambil order
+      final fetchedOrder = await _orderService.getOrderById(widget.orderId);
+
+      // ✅ Ambil item-item
+      final fetchedItems = await _orderService.getOrderItems(widget.orderId);
+
+      // ✅ Ambil customer (jika ada)
+      model_customer.Customer? fetchedCustomer;
+      if (fetchedOrder?.customerId != null) {
+        // ✅ Perbaikan: Ambil data pelanggan langsung dari OrderService
+        fetchedCustomer =
+            await _orderService.getCustomerById(fetchedOrder!.customerId!);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        order = fetchedOrder;
+        items = fetchedItems;
+        customer = fetchedCustomer;
+        _isLoading = false; // ✅ Selesai loading
+      });
+    } catch (e) {
+      if (!mounted) return;
+      CustomNotification.show(
+        context,
+        'Gagal memuat data pesanan: $e',
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _getDevices() async {
     final pairedDevices = await bluetooth.getBondedDevices();
+    if (!mounted) return;
     setState(() => devices = pairedDevices);
 
     bluetooth.isConnected.then((isConnected) {
+      if (!mounted) return;
       setState(() => connected = isConnected ?? false);
     });
   }
@@ -56,97 +102,74 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
 
   void connect() async {
     if (selectedDevice == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Pilih printer dulu")));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Pilih printer dulu")));
       return;
     }
     try {
       await bluetooth.connect(selectedDevice!);
+      if (!mounted) return;
       setState(() => connected = true);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Berhasil konek")));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text("Berhasil konek")));
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Gagal konek: $e")));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text("Gagal konek: $e")));
     }
   }
 
   void disconnect() async {
     await bluetooth.disconnect();
+    if (!mounted) return;
     setState(() => connected = false);
   }
 
-  void _printReceipt() async {
-    if (!connected) return;
+  void _printReceipt(model_setting.Setting settings) async {
+    if (!connected || order == null) return;
 
-    try {
-      final bytes = await rootBundle.load('assets/store.png');
-      final imageBytes = bytes.buffer.asUint8List();
-      final original = img.decodeImage(imageBytes);
+    // === CETAK HEADER ===
+    bluetooth.printCustom(settings.restoName ?? "Nama Restoran", 3, 1);
+    bluetooth.printCustom(settings.restoAddress ?? "Alamat Restoran", 1, 1);
+    bluetooth.printCustom("================================", 1, 1);
 
-      if (original != null) {
-        const int paperWidth = 384;
-        final img.Image centeredImage = img.Image(paperWidth, original.height);
-        img.fill(centeredImage, img.getColor(255, 255, 255));
-        final int x = ((paperWidth - original.width) / 2).round();
-        img.copyInto(centeredImage, original, dstX: x);
-        final Uint8List printableBytes = Uint8List.fromList(
-          img.encodePng(centeredImage),
-        );
-        bluetooth.printImageBytes(printableBytes);
-      }
-    } catch (_) {}
-
-    bluetooth.printNewLine();
-    bluetooth.printCustom("WARUNG TIKUNGAN", 3, 1);
-    bluetooth.printCustom("Patimban, Kec Pusakanagara, Kabupaten Subang", 1, 1);
-    bluetooth.printCustom(
-      "================================",
-      1,
-      1,
-    );
     bluetooth.printLeftRight(
       "Tanggal",
-      DateFormat(
-        'dd-MM-yyyy HH:mm',
-      ).format(DateTime.parse(widget.order.orderTime)),
+      DateFormat('dd-MM-yyyy HH:mm').format(DateTime.parse(order!.orderTime)),
       1,
     );
-    bluetooth.printLeftRight("Pesanan #${widget.order.id}", "Kasir: Admin", 1);
+    bluetooth.printLeftRight("Pesanan #${order!.id}", "Kasir: Admin", 1);
 
-    final customerProvider = Provider.of<CustomerProvider>(
-      context,
-      listen: false,
-    );
-    final customer = await customerProvider.loadCustomerById(
-      widget.order.customerId,
-    );
-    if (customer != null && customer.name.isNotEmpty) {
-      bluetooth.printLeftRight("Pelanggan", customer.name, 1);
-    }
-
-    bluetooth.printCustom(
-      "================================",
-      1,
-      1,
-    );
-    for (var item in widget.items) {
-      bluetooth.printCustom(item.menuName, 1, 0);
-      String qtyPrice = "x${item.quantity} kg Rp ${_formatCurrency(item.price)}";
-      bluetooth.printLeftRight(qtyPrice, "Rp ${_formatCurrency(item.price * item.quantity)}", 1);
-    }
-
-    bluetooth.printCustom(
-      "================================",
-      1,
+    // === CETAK CUSTOMER ===
+    bluetooth.printLeftRight(
+      "Pelanggan",
+      (customer != null && customer!.name.isNotEmpty) ? customer!.name : "-",
       1,
     );
     bluetooth.printLeftRight(
+      "Meja",
+      (customer != null && customer!.tableNumber != null)
+          ? customer!.tableNumber.toString()
+          : "-",
+      1,
+    );
+
+    // === CETAK ITEM PESANAN ===
+    bluetooth.printCustom("================================", 1, 1);
+    for (var item in items) {
+      bluetooth.printCustom(item.menuName, 1, 0);
+      String qtyPrice = "x${item.quantity} Rp${_formatCurrency(item.price)}";
+      bluetooth.printLeftRight(
+        qtyPrice,
+        "Rp ${_formatCurrency(item.price * item.quantity)}",
+        1,
+      );
+    }
+
+    // === CETAK TOTAL ===
+    bluetooth.printCustom("================================", 1, 1);
+    bluetooth.printLeftRight(
       "Total",
-      'Rp ${_formatCurrency(widget.order.totalAmount!)}',
+      'Rp ${_formatCurrency(order!.totalAmount!)}',
       1,
     );
     bluetooth.printLeftRight(
@@ -160,63 +183,75 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
       1,
     );
 
-    bluetooth.printCustom(
-      "================================",
-      1,
-      1,
-    );
-    bluetooth.printCustom("Terima kasih atas kunjungan anda", 1, 1);
+    // === FOOTER ===
+    bluetooth.printCustom("================================", 1, 1);
+    bluetooth.printCustom(settings.receiptMessage ?? "Terima kasih", 1, 1);
+
     bluetooth.printNewLine();
     bluetooth.printNewLine();
-    bluetooth.paperCut();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: "Cetak Struk", showBackButton: true),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView(
-              children: devices
-                  .map(
-                    (device) => ListTile(
-                      title: Text(device.name ?? "Unknown"),
-                      subtitle: Text(device.address ?? ""),
-                      trailing: selectedDevice == device
-                          ? const Icon(Icons.check, color: Colors.green)
-                          : null,
-                      onTap: () => setState(() => selectedDevice = device),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-          if (connected)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: Text(
-                "Printer terhubung",
-                style: TextStyle(color: Colors.green),
-              ),
-            ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      body: Consumer<SettingProvider>(
+        builder: (context, settingProvider, child) {
+          if (_isLoading || settingProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (order == null) {
+            return const Center(
+              child: Text("Data pesanan tidak ditemukan."),
+            );
+          }
+
+          return Column(
             children: [
-              ElevatedButton(onPressed: connect, child: const Text("Connect")),
-              ElevatedButton(
-                onPressed: disconnect,
-                child: const Text("Disconnect"),
+              Expanded(
+                child: ListView(
+                  children: devices
+                      .map(
+                        (device) => ListTile(
+                          title: Text(device.name ?? "Unknown"),
+                          subtitle: Text(device.address ?? ""),
+                          trailing: selectedDevice == device
+                              ? const Icon(Icons.check, color: Colors.green)
+                              : null,
+                          onTap: () => setState(() => selectedDevice = device),
+                        ),
+                      )
+                      .toList(),
+                ),
               ),
-              ElevatedButton(
-                onPressed: connected ? _printReceipt : null,
-                child: const Text("Cetak"),
+              if (connected)
+                const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Text(
+                    "Printer terhubung",
+                    style: TextStyle(color: Colors.green),
+                  ),
+                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(onPressed: connect, child: const Text("Connect")),
+                  ElevatedButton(onPressed: disconnect, child: const Text("Disconnect")),
+                  ElevatedButton(
+                    onPressed: connected &&
+                            settingProvider.settings != null &&
+                            order != null
+                        ? () => _printReceipt(settingProvider.settings!)
+                        : null,
+                    child: const Text("Cetak"),
+                  ),
+                ],
               ),
+              const SizedBox(height: 16),
             ],
-          ),
-          const SizedBox(height: 16),
-        ],
+          );
+        },
       ),
     );
   }
