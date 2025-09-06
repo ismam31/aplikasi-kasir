@@ -6,6 +6,8 @@ import 'package:aplikasi_kasir_seafood/pages/order_details_page.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_drawer.dart';
 import 'package:intl/intl.dart';
+import 'package:aplikasi_kasir_seafood/services/order_service.dart';
+import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
 
 class ActiveOrdersPage extends StatefulWidget {
   const ActiveOrdersPage({super.key});
@@ -15,6 +17,8 @@ class ActiveOrdersPage extends StatefulWidget {
 }
 
 class _ActiveOrdersPageState extends State<ActiveOrdersPage> {
+  final OrderService _orderService = OrderService();
+
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,###', 'id_ID');
     return formatter.format(amount);
@@ -57,41 +61,85 @@ class _ActiveOrdersPageState extends State<ActiveOrdersPage> {
               itemCount: activeOrders.length,
               itemBuilder: (context, index) {
                 final order = activeOrders[index];
-                return Card(
-                  elevation: 2,
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: ListTile(
-                    leading: const Icon(FontAwesomeIcons.circleExclamation, color: Colors.orange),
-                    title: Text('Pesanan #${order.id}'),
-                    subtitle: Text('Total: Rp ${_formatCurrency(order.totalAmount!)}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.payment, color: Colors.green),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => OrderDetailsPage(order: order),
-                              ),
-                            );
-                          },
+                return FutureBuilder<model_customer.Customer?>(
+                  future: order.customerId != null
+                      ? _orderService.getCustomerById(order.customerId!)
+                      : Future.value(null),
+                  builder: (context, snapshot) {
+                    final customer = snapshot.data;
+                    final customerName =
+                        customer?.name ?? 'Pelanggan Tidak Dikenal';
+                    final tableNumber = customer?.tableNumber ?? '-';
+
+                    return Card(
+                      elevation: 4,
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        onTap: () {
+                          // Navigasi ke OrderDetailsPage saat kartu diklik
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  OrderDetailsPage(order: order),
+                            ),
+                          );
+                        },
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 16,
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.remove_red_eye, color: Colors.blue),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => OrderDetailsPage(order: order),
-                              ),
-                            );
-                          },
+                        leading: const Icon(
+                          FontAwesomeIcons.circleExclamation,
+                          color: Colors.orange,
+                          size: 28,
                         ),
-                      ],
-                    ),
-                  ),
+                        title: Text(
+                          customerName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: 4),
+                            Text(
+                              'Meja: $tableNumber',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontWeight: FontWeight.normal,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Total: Rp ${_formatCurrency(order.totalAmount ?? 0)}',
+                              style: const TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'Waktu: ${DateFormat('HH:mm').format(DateTime.parse(order.orderTime))}',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
                 );
               },
             ),

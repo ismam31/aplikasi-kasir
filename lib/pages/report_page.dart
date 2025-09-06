@@ -1,13 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:aplikasi_kasir_seafood/providers/report_provider.dart';
-import 'package:aplikasi_kasir_seafood/providers/expense_provider.dart';
-import 'package:aplikasi_kasir_seafood/models/expense.dart' as model_expense;
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_drawer.dart';
+import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 
-class ReportPage extends StatelessWidget {
+class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
+
+  @override
+  State<ReportPage> createState() => _ReportPageState();
+}
+
+class _ReportPageState extends State<ReportPage> {
+  String _selectedDateFilter = 'Today';
+
+  @override
+  void initState() {
+    super.initState();
+    // Muat laporan untuk hari ini saat halaman pertama kali dibuka
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ReportProvider>(context, listen: false).loadReports(DateTime.now());
+    });
+  }
+
+  // Metode untuk memuat ulang laporan berdasarkan filter tanggal
+  Future<void> _loadReportsByDateFilter(String filter) async {
+    DateTime? dateToLoad;
+    setState(() {
+      _selectedDateFilter = filter;
+    });
+
+    switch (filter) {
+      case 'Today':
+        dateToLoad = DateTime.now();
+        break;
+      case 'Yesterday':
+        dateToLoad = DateTime.now().subtract(const Duration(days: 1));
+        break;
+      case 'Last 7 Days':
+        dateToLoad = DateTime.now().subtract(const Duration(days: 7));
+        break;
+    }
+
+    if (dateToLoad != null) {
+      await Provider.of<ReportProvider>(context, listen: false).loadReports(dateToLoad);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,76 +60,168 @@ class ReportPage extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Bagian Ringkasan Laporan
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+          return RefreshIndicator(
+            onRefresh: () => _loadReportsByDateFilter(_selectedDateFilter),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Bagian Filter Tanggal
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Ringkasan Laporan Penjualan',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      DropdownButton<String>(
+                        value: _selectedDateFilter,
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Today',
+                            child: Text('Today'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Yesterday',
+                            child: Text('Yesterday'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Last 7 Days',
+                            child: Text('Last 7 Days'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            _loadReportsByDateFilter(value);
+                          }
+                        },
+                      ),
+                    ],
                   ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        _buildMetricRow(
-                          'Total Pendapatan',
-                          reportProvider.totalRevenue,
-                          Colors.green,
-                        ),
-                        const Divider(),
-                        _buildMetricRow(
-                          'Total Pengeluaran',
-                          reportProvider.totalExpenses,
-                          Colors.red,
-                        ),
-                        const Divider(),
-                        _buildMetricRow(
-                          'Keuntungan Bersih',
-                          reportProvider.netProfit,
-                          Colors.blue,
-                        ),
-                      ],
+                  const SizedBox(height: 16),
+  
+                  // Bagian Kartu Metrik
+                  _buildMetricCard(
+                    context,
+                    title: 'Jml Transaksi',
+                    value: reportProvider.totalOrders,
+                    color: Colors.green.shade800,
+                    icon: Icons.receipt_long,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMetricCard(
+                    context,
+                    title: 'Keuntungan',
+                    value: reportProvider.netProfit,
+                    color: Colors.blue.shade800,
+                    icon: Icons.trending_up,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMetricCard(
+                    context,
+                    title: 'Pendapatan',
+                    value: reportProvider.totalRevenue,
+                    color: Colors.green,
+                    icon: Icons.monetization_on,
+                  ),
+  
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Laporan Transaksi per jam',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-                const SizedBox(height: 24),
-                // Bagian Input Pengeluaran
-                const Text(
-                  'Catat Pengeluaran Baru',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                _buildExpenseForm(context),
-              ],
+                  _buildChartCard(context, reportProvider.hourlyData),
+  
+                  const SizedBox(height: 24),
+                  _buildMetricCard(
+                    context,
+                    title: 'Sisa modal - Metode FIFO',
+                    value: 0.0, // Ganti dengan data sisa modal yang sebenarnya
+                    color: Colors.grey.shade600,
+                    icon: Icons.inventory_2,
+                  ),
+                ],
+              ),
             ),
           );
         },
       ),
     );
   }
-
-  Widget _buildMetricRow(String title, double amount, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 16,
-              color: color,
-              fontWeight: FontWeight.w500,
-            ),
+  
+  Widget _buildMetricCard(
+      BuildContext context, {
+        required String title,
+        required num value,
+        required Color color,
+        required IconData icon,
+      }) {
+    final formatter = NumberFormat('#,###', 'id_ID');
+    final formattedValue = value is int
+        ? value.toString()
+        : 'Rp ${formatter.format(value)}';
+  
+    return Container(
+      padding: const EdgeInsets.all(24.0),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.15),
+            spreadRadius: 2,
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    icon,
+                    size: 24,
+                    color: color,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                ],
+              ),
+              const Text(
+                '+0% vs kemarin',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.green,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
           Text(
-            'Rp ${amount.toStringAsFixed(0)}',
+            formattedValue,
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 32,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -98,72 +230,85 @@ class ReportPage extends StatelessWidget {
       ),
     );
   }
-
-  Widget _buildExpenseForm(BuildContext context) {
-    final TextEditingController descriptionController = TextEditingController();
-    final TextEditingController amountController = TextEditingController();
-
+  
+  Widget _buildChartCard(BuildContext context, List<Map<String, dynamic>> hourlyData) {
     return Card(
-      elevation: 2,
+      elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Deskripsi Pengeluaran',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: amountController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Jumlah (Rp)'),
+            const Text(
+              'Grafik Pendapatan per Jam',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  final description = descriptionController.text;
-                  final amount = double.tryParse(amountController.text) ?? 0.0;
-
-                  if (description.isNotEmpty && amount > 0) {
-                    final newExpense = model_expense.Expense(
-                      description: description,
-                      amount: amount,
-                      date: DateTime.now().toIso8601String(),
-                    );
-                    Provider.of<ExpenseProvider>(
-                      context,
-                      listen: false,
-                    ).addExpense(newExpense);
-
-                    // Setelah pengeluaran dicatat, muat ulang laporan
-                    Provider.of<ReportProvider>(
-                      context,
-                      listen: false,
-                    ).loadReports();
-
-                    descriptionController.clear();
-                    amountController.clear();
-
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Pengeluaran berhasil dicatat!'),
+              height: 200,
+              child: LineChart(
+                LineChartData(
+                  minX: 0,
+                  maxX: 24,
+                  minY: 0,
+                  maxY: hourlyData.isNotEmpty
+                      ? hourlyData.map((e) => e['value'] as double).reduce((a, b) => a > b ? a : b) * 1.2
+                      : 100,
+                  titlesData: FlTitlesData(
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) {
+                        return Text(value.toInt().toString());
+                      }),
+                    ),
+                    topTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: true,
+                    horizontalInterval: 200000,
+                    getDrawingHorizontalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey.withOpacity(0.2),
+                        strokeWidth: 1,
+                      );
+                    },
+                    getDrawingVerticalLine: (value) {
+                      return FlLine(
+                        color: Colors.grey.withOpacity(0.2),
+                        strokeWidth: 1,
+                      );
+                    },
+                  ),
+                  borderData: FlBorderData(
+                    show: true,
+                    border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
+                  ),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: hourlyData
+                          .map((e) => FlSpot(e['hour'] as double, e['value'] as double))
+                          .toList(),
+                      isCurved: true,
+                      color: Colors.green,
+                      barWidth: 3,
+                      isStrokeCapRound: true,
+                      dotData: FlDotData(show: false),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: Colors.green.withOpacity(0.3),
                       ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Isi deskripsi dan jumlah dengan benar.'),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Simpan Pengeluaran'),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
