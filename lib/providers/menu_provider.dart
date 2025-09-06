@@ -18,6 +18,15 @@ class MenuProvider with ChangeNotifier {
 
   MenuProvider() {
     loadMenusAndCategories();
+    loadMenus();
+  }
+
+  Future<void> loadMenus() async {
+    _isLoading = true;
+    notifyListeners();
+    _menus = await _menuService.getMenus();
+    _isLoading = false;
+    notifyListeners();
   }
 
   Future<void> updateMenuAvailability(int id, bool isAvailable) async {

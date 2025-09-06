@@ -121,10 +121,6 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
             filteredMenus.sort((a, b) => b.name.compareTo(a.name));
           }
 
-          if (filteredMenus.isEmpty) {
-            return const Center(child: Text('Tidak ada menu yang ditemukan.'));
-          }
-
           return Column(
             children: [
               Padding(
@@ -163,7 +159,6 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
                           },
                         ),
                         IconButton(
-                          // Tombol switch tampilan
                           icon: Icon(
                             _isGridView ? Icons.view_list : Icons.grid_view,
                           ),
@@ -214,30 +209,32 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
                 ),
               ),
               Expanded(
-                child: _isGridView
-                    ? GridView.builder(
-                        padding: const EdgeInsets.all(16.0),
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
+                child: filteredMenus.isEmpty
+                    ? const Center(child: Text('Tidak ada menu yang ditemukan.'))
+                    : _isGridView
+                        ? GridView.builder(
+                            padding: const EdgeInsets.all(16.0),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
                               crossAxisCount: 3,
                               crossAxisSpacing: 5.0,
                               mainAxisSpacing: 5.0,
                               childAspectRatio: 0.5,
                             ),
-                        itemCount: filteredMenus.length,
-                        itemBuilder: (context, index) {
-                          final menu = filteredMenus[index];
-                          return _buildMenuItemCard(context, menu);
-                        },
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16.0),
-                        itemCount: filteredMenus.length,
-                        itemBuilder: (context, index) {
-                          final menu = filteredMenus[index];
-                          return _buildMenuItemListTile(context, menu);
-                        },
-                      ),
+                            itemCount: filteredMenus.length,
+                            itemBuilder: (context, index) {
+                              final menu = filteredMenus[index];
+                              return _buildMenuItemCard(context, menu);
+                            },
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.all(16.0),
+                            itemCount: filteredMenus.length,
+                            itemBuilder: (context, index) {
+                              final menu = filteredMenus[index];
+                              return _buildMenuItemListTile(context, menu);
+                            },
+                          ),
               ),
             ],
           );

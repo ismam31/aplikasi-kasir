@@ -1,7 +1,7 @@
-import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
+import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
-import 'package:aplikasi_kasir_seafood/models/order_item.dart'
-    as model_order_item;
+import 'package:aplikasi_kasir_seafood/models/order_item.dart' as model_order_item;
+import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
 import 'package:aplikasi_kasir_seafood/services/database_helper.dart';
 
 class OrderService {
@@ -72,13 +72,26 @@ class OrderService {
     });
   }
 
-  // Metode untuk mendapatkan semua pesanan
-  Future<List<model_order.Order>> getOrders() async {
+  // Metode untuk mendapatkan semua pesanan atau pesanan berdasarkan tanggal
+  Future<List<model_order.Order>> getOrders([DateTime? date]) async {
     final db = await _dbHelper.database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      'orders',
-      orderBy: 'order_time DESC',
-    );
+    List<Map<String, dynamic>> maps;
+
+    if (date != null) {
+      final formattedDate = DateFormat('yyyy-MM-dd').format(date);
+      maps = await db.query(
+        'orders',
+        where: "strftime('%Y-%m-%d', order_time) = ?",
+        whereArgs: [formattedDate],
+        orderBy: 'order_time DESC',
+      );
+    } else {
+      maps = await db.query(
+        'orders',
+        orderBy: 'order_time DESC',
+      );
+    }
+
     return List.generate(maps.length, (i) {
       final orderMap = Map<String, dynamic>.from(maps[i]);
       // Pastikan total_amount diubah ke double
@@ -108,7 +121,7 @@ class OrderService {
     return null;
   }
 
-  // Metode baru untuk mendapatkan item pesanan berdasarkan ID pesanan
+  // Metode untuk mendapatkan item pesanan berdasarkan ID pesanan
   Future<List<model_order_item.OrderItem>> getOrderItems(int orderId) async {
     final db = await _dbHelper.database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -129,7 +142,7 @@ class OrderService {
     });
   }
 
-  // ✅ Metode baru untuk mengambil data pelanggan berdasarkan ID pelanggan
+  // Metode baru untuk mengambil data pelanggan berdasarkan ID pelanggan
   Future<model_customer.Customer?> getCustomerById(int id) async {
     final db = await _dbHelper.database;
     final List<Map<String, dynamic>> maps = await db.query(

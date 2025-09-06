@@ -65,31 +65,47 @@ class _PaymentPageState extends State<PaymentPage> {
       return;
     }
 
-    final newOrder = model_order.Order(
-      customerId: widget.order.customerId,
-      orderStatus: 'Selesai',
-      paymentMethod: _selectedPaymentMethod,
-      orderTime: DateTime.now().toIso8601String(),
-      totalAmount: _totalAmount,
-    );
+    // 🔹 Kalau order masih baru (belum pernah disave)
+    if (widget.order.id == null) {
+      final newOrder = model_order.Order(
+        customerId: widget.order.customerId,
+        orderStatus: 'Selesai', // langsung selesai karena bayar sekarang
+        paymentMethod: _selectedPaymentMethod,
+        orderTime: DateTime.now().toIso8601String(),
+        totalAmount: _totalAmount,
+      );
 
-    // Menyimpan order ke DB dan mendapatkan ID baru
-    final newOrderId = await orderService.insertOrder(newOrder, items);
+      final newOrderId = await orderService.insertOrder(newOrder, items);
 
-    // Membersihkan cart setelah disave
-    orderProvider.clearCart();
+      orderProvider.clearCart();
 
-    // Pindah ke SuccessPage dengan orderId baru
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => SuccessPage(
-          orderId: newOrderId,
-          changeAmount: _changeAmount,
-          cashGiven: _cashGiven,
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SuccessPage(
+            orderId: newOrderId,
+            changeAmount: _changeAmount,
+            cashGiven: _cashGiven,
+          ),
         ),
-      ),
-    );
+      );
+    } else {
+      // 🔹 Kalau order udah ada (disave dulu → status Diproses)
+      await orderService.updateOrderStatus(widget.order.id!, 'Selesai');
+
+      orderProvider.clearCart();
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SuccessPage(
+            orderId: widget.order.id!,
+            changeAmount: _changeAmount,
+            cashGiven: _cashGiven,
+          ),
+        ),
+      );
+    }
   }
 
   void _onKeyPress(String value) {
