@@ -87,7 +87,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Pengaturan'),
-      drawer: const CustomDrawer(),
+      drawer: const CustomDrawer(currentPage: 'Pengaturan',),
       body: Consumer<SettingProvider>(
         builder: (context, settingProvider, child) {
           if (settingProvider.isLoading) {

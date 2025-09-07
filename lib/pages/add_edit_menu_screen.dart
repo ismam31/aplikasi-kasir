@@ -24,7 +24,6 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
   late TextEditingController _descController;
   late TextEditingController _priceBaseController;
   late TextEditingController _priceSellController;
-  late TextEditingController _weightUnitController;
   model_category.Category? _selectedCategory;
   String? _selectedWeightUnit;
   String? _imagePath;
@@ -46,7 +45,6 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
       text: menu?.priceSell.toString() ?? '',
     );
     _isAvailable = menu?.isAvailable ?? true;
-    _weightUnitController = TextEditingController(text: menu?.weightUnit ?? '');
     _selectedWeightUnit = menu?.weightUnit;
     _imagePath = menu?.image;
 
@@ -75,7 +73,6 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
     _descController.dispose();
     _priceBaseController.dispose();
     _priceSellController.dispose();
-    _weightUnitController.dispose();
     super.dispose();
   }
 
@@ -147,6 +144,28 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
     }
   }
 
+  InputDecoration _buildInputDecoration(String labelText, {String? hintText}) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      filled: true,
+      fillColor: Colors.grey.shade100,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.teal.shade700, width: 2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.menu != null;
@@ -160,7 +179,7 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
       body: categoryProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(24),
               child: Form(
                 key: _formKey,
                 child: ListView(
@@ -168,25 +187,29 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
                     // Nama menu
                     TextFormField(
                       controller: _nameController,
-                      decoration: const InputDecoration(labelText: 'Nama Menu'),
+                      decoration: _buildInputDecoration(
+                        'Nama Menu',
+                        hintText: 'Mis: Kepiting Saus Padang',
+                      ),
                       validator: (value) => (value == null || value.isEmpty)
                           ? 'Nama wajib diisi'
                           : null,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     // Deskripsi
                     TextFormField(
                       controller: _descController,
-                      decoration: const InputDecoration(labelText: 'Deskripsi'),
+                      decoration: _buildInputDecoration(
+                        'Deskripsi',
+                        hintText: 'Mis: Kepiting segar dengan saus khas',
+                      ),
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     // Harga dasar
                     TextFormField(
                       controller: _priceBaseController,
-                      decoration: const InputDecoration(
-                        labelText: 'Harga Dasar',
-                      ),
+                      decoration: _buildInputDecoration('Harga Dasar'),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         CurrencyInputFormatter(
@@ -195,13 +218,11 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     // Harga jual
                     TextFormField(
                       controller: _priceSellController,
-                      decoration: const InputDecoration(
-                        labelText: 'Harga Jual',
-                      ),
+                      decoration: _buildInputDecoration('Harga Jual'),
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         CurrencyInputFormatter(
@@ -213,27 +234,37 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
                           ? 'Harga jual wajib diisi'
                           : null,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     // Stok
-                    SwitchListTile(
-                      title: const Text('Stok'),
-                      subtitle: Text(
-                        _isAvailable ? 'Tersedia' : 'Tidak Tersedia',
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
                       ),
-                      value: _isAvailable,
-                      onChanged: (val) {
-                        setState(() {
-                          _isAvailable = val;
-                        });
-                      },
+                      child: SwitchListTile(
+                        title: const Text(
+                          'Stok',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          _isAvailable ? 'Tersedia' : 'Tidak Tersedia',
+                        ),
+                        value: _isAvailable,
+                        onChanged: (val) {
+                          setState(() {
+                            _isAvailable = val;
+                          });
+                        },
+                        activeColor: Colors.teal.shade700,
+                        activeTrackColor: Colors.teal.shade200,
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     // Satuan berat
                     DropdownButtonFormField<String>(
                       value: _selectedWeightUnit,
-                      decoration: const InputDecoration(
-                        labelText: 'Satuan Berat',
-                      ),
+                      decoration: _buildInputDecoration('Satuan Berat'),
                       items: _weightUnits.map((unit) {
                         return DropdownMenuItem(value: unit, child: Text(unit));
                       }).toList(),
@@ -243,11 +274,11 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
                         });
                       },
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
                     // Kategori
                     DropdownButtonFormField<model_category.Category>(
                       value: _selectedCategory,
-                      decoration: const InputDecoration(labelText: 'Kategori'),
+                      decoration: _buildInputDecoration('Kategori'),
                       items: categoryProvider.categories.map((cat) {
                         return DropdownMenuItem(
                           value: cat,
@@ -259,55 +290,75 @@ class _AddEditMenuScreenState extends State<AddEditMenuScreen> {
                       validator: (val) =>
                           val == null ? 'Kategori wajib dipilih' : null,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 24),
+                    // Image Picker Section
                     GestureDetector(
                       onTap: _pickImage,
-                      child: _imagePath != null && _imagePath!.isNotEmpty
-                          ? (_imagePath!.startsWith('/data') ||
-                                    _imagePath!.startsWith('/storage'))
-                                // Kalau path lokal (baru diupload dari HP)
-                                ? Image.file(
-                                    File(_imagePath!),
-                                    height: 150,
-                                    fit: BoxFit.cover,
-                                  )
-                                // Kalau path dari database (URL / path relative)
-                                : Image.network(
-                                    _imagePath!,
-                                    height: 150,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (ctx, err, st) {
-                                      return Container(
-                                        height: 150,
-                                        color: Colors.grey[300],
-                                        child: const Icon(
-                                          Icons.broken_image,
-                                          size: 50,
-                                        ),
-                                      );
-                                    },
-                                  )
-                          : Container(
-                              height: 150,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Center(
-                                child: Text('Ketuk untuk pilih gambar'),
-                              ),
-                            ),
+                      child: Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: _imagePath != null && _imagePath!.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: _imagePath!.startsWith('http')
+                                    ? Image.network(
+                                        _imagePath!,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (ctx, err, st) {
+                                          return _buildImagePlaceholder();
+                                        },
+                                      )
+                                    : Image.file(
+                                        File(_imagePath!),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (ctx, err, st) {
+                                          return _buildImagePlaceholder();
+                                        },
+                                      ),
+                              )
+                            : _buildImagePlaceholder(),
+                      ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 32),
                     // Tombol simpan
                     ElevatedButton(
                       onPressed: _save,
-                      child: Text(isEdit ? 'Update' : 'Tambah'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal.shade700,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 4,
+                      ),
+                      child: Text(
+                        isEdit ? 'Update Menu' : 'Tambah Menu',
+                        style: const TextStyle(fontSize: 18),
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildImagePlaceholder() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.camera_alt, size: 50, color: Colors.blueGrey.shade300),
+        const SizedBox(height: 8),
+        Text(
+          'Ketuk untuk pilih gambar',
+          style: TextStyle(color: Colors.blueGrey.shade500),
+        ),
+      ],
     );
   }
 }

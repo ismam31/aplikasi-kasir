@@ -40,7 +40,7 @@ class _ActiveOrdersPageState extends State<ActiveOrdersPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Pesanan Aktif'),
-      drawer: const CustomDrawer(),
+      drawer: const CustomDrawer(currentPage: 'Pesanan Aktif'),
       body: Consumer<OrderListProvider>(
         builder: (context, orderListProvider, child) {
           if (orderListProvider.isLoading) {
@@ -58,6 +58,7 @@ class _ActiveOrdersPageState extends State<ActiveOrdersPage> {
           return RefreshIndicator(
             onRefresh: _refreshOrders,
             child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               itemCount: activeOrders.length,
               itemBuilder: (context, index) {
                 final order = activeOrders[index];
@@ -73,16 +74,12 @@ class _ActiveOrdersPageState extends State<ActiveOrdersPage> {
 
                     return Card(
                       elevation: 4,
-                      margin: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
+                      margin: const EdgeInsets.symmetric(vertical: 8),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(16),
                       ),
                       child: ListTile(
                         onTap: () {
-                          // Navigasi ke OrderDetailsPage saat kartu diklik
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -92,19 +89,28 @@ class _ActiveOrdersPageState extends State<ActiveOrdersPage> {
                           );
                         },
                         contentPadding: const EdgeInsets.symmetric(
-                          vertical: 8,
+                          vertical: 12,
                           horizontal: 16,
                         ),
-                        leading: const Icon(
-                          FontAwesomeIcons.circleExclamation,
-                          color: Colors.orange,
-                          size: 28,
+                        leading: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            FontAwesomeIcons.solidCircleUser,
+                            color: Colors.orange,
+                            size: 24,
+                          ),
                         ),
                         title: Text(
                           customerName,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: 18,
+                            color: Colors.blueGrey,
                           ),
                         ),
                         subtitle: Column(
@@ -114,7 +120,7 @@ class _ActiveOrdersPageState extends State<ActiveOrdersPage> {
                             Text(
                               'Meja: $tableNumber',
                               style: const TextStyle(
-                                color: Colors.black54,
+                                color: Colors.blueGrey,
                                 fontWeight: FontWeight.normal,
                               ),
                             ),
@@ -122,20 +128,21 @@ class _ActiveOrdersPageState extends State<ActiveOrdersPage> {
                             Text(
                               'Total: Rp ${_formatCurrency(order.totalAmount ?? 0)}',
                               style: const TextStyle(
-                                color: Colors.green,
-                                fontWeight: FontWeight.w500,
+                                color: Colors.teal,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Waktu: ${DateFormat('HH:mm').format(DateTime.parse(order.orderTime))}',
-                              style: const TextStyle(color: Colors.grey),
-                            ),
-                          ],
+                        trailing: Text(
+                          DateFormat(
+                            'HH:mm',
+                          ).format(DateTime.parse(order.orderTime)),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     );

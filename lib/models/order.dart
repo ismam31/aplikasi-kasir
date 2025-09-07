@@ -5,6 +5,8 @@ class Order {
   double? totalAmount;
   String orderStatus;
   String orderTime;
+  double? paidAmount;
+  double? changeAmount;
 
   Order({
     this.id,
@@ -13,6 +15,8 @@ class Order {
     this.totalAmount,
     required this.orderStatus,
     required this.orderTime,
+    this.paidAmount,
+    this.changeAmount,
   });
 
   factory Order.fromMap(Map<String, dynamic> map) {
@@ -23,6 +27,8 @@ class Order {
       totalAmount: map['total_amount'],
       orderStatus: map['order_status'],
       orderTime: map['order_time'],
+      paidAmount: map['paid_amount'],
+      changeAmount: map['change_amount'],
     );
   }
 
@@ -34,8 +40,8 @@ class Order {
       'total_amount': totalAmount,
       'order_status': orderStatus,
       'order_time': orderTime,
+      'paid_amount': paidAmount,
+      'change_amount': changeAmount,
     };
   }
-
-  copyWith({required String orderStatus, required String paymentMethod}) {}
 }

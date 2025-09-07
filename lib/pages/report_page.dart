@@ -19,33 +19,51 @@ class _ReportPageState extends State<ReportPage> {
   @override
   void initState() {
     super.initState();
-    // Muat laporan untuk hari ini saat halaman pertama kali dibuka
+    // Default: load laporan hari ini
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ReportProvider>(context, listen: false).loadReports(DateTime.now());
+      _loadReportsByDateFilter('Today');
     });
   }
 
   // Metode untuk memuat ulang laporan berdasarkan filter tanggal
   Future<void> _loadReportsByDateFilter(String filter) async {
-    DateTime? dateToLoad;
+    DateTime now = DateTime.now();
+    DateTime? startDate;
+    DateTime? endDate;
+
     setState(() {
       _selectedDateFilter = filter;
     });
 
     switch (filter) {
       case 'Today':
-        dateToLoad = DateTime.now();
+        startDate = DateTime(now.year, now.month, now.day);
+        endDate = startDate.add(const Duration(days: 1));
         break;
       case 'Yesterday':
-        dateToLoad = DateTime.now().subtract(const Duration(days: 1));
+        startDate = DateTime(
+          now.year,
+          now.month,
+          now.day,
+        ).subtract(const Duration(days: 1));
+        endDate = startDate.add(const Duration(days: 1));
         break;
-      case 'Last 7 Days':
-        dateToLoad = DateTime.now().subtract(const Duration(days: 7));
+      case 'This Week':
+        int weekday = now.weekday; // Senin = 1, Minggu = 7
+        startDate = now.subtract(Duration(days: weekday - 1));
+        endDate = startDate.add(const Duration(days: 7));
+        break;
+      case 'This Month':
+        startDate = DateTime(now.year, now.month, 1);
+        endDate = DateTime(now.year, now.month + 1, 1);
         break;
     }
 
-    if (dateToLoad != null) {
-      await Provider.of<ReportProvider>(context, listen: false).loadReports(dateToLoad);
+    if (startDate != null && endDate != null) {
+      await Provider.of<ReportProvider>(
+        context,
+        listen: false,
+      ).loadReportsByRange(startDate, endDate);
     }
   }
 
@@ -53,7 +71,7 @@ class _ReportPageState extends State<ReportPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Laporan Keuangan'),
-      drawer: const CustomDrawer(),
+      drawer: const CustomDrawer(currentPage: 'Laporan',),
       body: Consumer<ReportProvider>(
         builder: (context, reportProvider, child) {
           if (reportProvider.isLoading) {
@@ -84,15 +102,19 @@ class _ReportPageState extends State<ReportPage> {
                         items: const [
                           DropdownMenuItem(
                             value: 'Today',
-                            child: Text('Today'),
+                            child: Text('Hari Ini'),
                           ),
                           DropdownMenuItem(
                             value: 'Yesterday',
-                            child: Text('Yesterday'),
+                            child: Text('Kemarin'),
                           ),
                           DropdownMenuItem(
-                            value: 'Last 7 Days',
-                            child: Text('Last 7 Days'),
+                            value: 'This Week',
+                            child: Text('Mingguan'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'This Month',
+                            child: Text('Bulanan'),
                           ),
                         ],
                         onChanged: (value) {
@@ -104,7 +126,7 @@ class _ReportPageState extends State<ReportPage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-  
+
                   // Bagian Kartu Metrik
                   _buildMetricCard(
                     context,
@@ -129,17 +151,14 @@ class _ReportPageState extends State<ReportPage> {
                     color: Colors.green,
                     icon: Icons.monetization_on,
                   ),
-  
+
                   const SizedBox(height: 24),
                   const Text(
                     'Laporan Transaksi per jam',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   _buildChartCard(context, reportProvider.hourlyData),
-  
+
                   const SizedBox(height: 24),
                   _buildMetricCard(
                     context,
@@ -156,19 +175,19 @@ class _ReportPageState extends State<ReportPage> {
       ),
     );
   }
-  
+
   Widget _buildMetricCard(
-      BuildContext context, {
-        required String title,
-        required num value,
-        required Color color,
-        required IconData icon,
-      }) {
+    BuildContext context, {
+    required String title,
+    required num value,
+    required Color color,
+    required IconData icon,
+  }) {
     final formatter = NumberFormat('#,###', 'id_ID');
     final formattedValue = value is int
         ? value.toString()
         : 'Rp ${formatter.format(value)}';
-  
+
     return Container(
       padding: const EdgeInsets.all(24.0),
       decoration: BoxDecoration(
@@ -192,11 +211,7 @@ class _ReportPageState extends State<ReportPage> {
             children: [
               Row(
                 children: [
-                  Icon(
-                    icon,
-                    size: 24,
-                    color: color,
-                  ),
+                  Icon(icon, size: 24, color: color),
                   const SizedBox(width: 8),
                   Text(
                     title,
@@ -210,10 +225,7 @@ class _ReportPageState extends State<ReportPage> {
               ),
               const Text(
                 '+0% vs kemarin',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.green,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.green),
               ),
             ],
           ),
@@ -230,8 +242,11 @@ class _ReportPageState extends State<ReportPage> {
       ),
     );
   }
-  
-  Widget _buildChartCard(BuildContext context, List<Map<String, dynamic>> hourlyData) {
+
+  Widget _buildChartCard(
+    BuildContext context,
+    List<Map<String, dynamic>> hourlyData,
+  ) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -253,16 +268,25 @@ class _ReportPageState extends State<ReportPage> {
                   maxX: 24,
                   minY: 0,
                   maxY: hourlyData.isNotEmpty
-                      ? hourlyData.map((e) => e['value'] as double).reduce((a, b) => a > b ? a : b) * 1.2
+                      ? hourlyData
+                                .map((e) => e['value'] as double)
+                                .reduce((a, b) => a > b ? a : b) *
+                            1.2
                       : 100,
                   titlesData: FlTitlesData(
                     leftTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 40,
+                      ),
                     ),
                     bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: true, getTitlesWidget: (value, meta) {
-                        return Text(value.toInt().toString());
-                      }),
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          return Text(value.toInt().toString());
+                        },
+                      ),
                     ),
                     topTitles: AxisTitles(
                       sideTitles: SideTitles(showTitles: false),
@@ -290,12 +314,20 @@ class _ReportPageState extends State<ReportPage> {
                   ),
                   borderData: FlBorderData(
                     show: true,
-                    border: Border.all(color: Colors.grey.withOpacity(0.2), width: 1),
+                    border: Border.all(
+                      color: Colors.grey.withOpacity(0.2),
+                      width: 1,
+                    ),
                   ),
                   lineBarsData: [
                     LineChartBarData(
                       spots: hourlyData
-                          .map((e) => FlSpot(e['hour'] as double, e['value'] as double))
+                          .map(
+                            (e) => FlSpot(
+                              e['hour'] as double,
+                              e['value'] as double,
+                            ),
+                          )
                           .toList(),
                       isCurved: true,
                       color: Colors.green,

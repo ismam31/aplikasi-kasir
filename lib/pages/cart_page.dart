@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:aplikasi_kasir_seafood/models/menu.dart' as model_menu;
@@ -71,7 +73,7 @@ class _CartPageState extends State<CartPage> {
     return formatter.format(amount);
   }
 
-  // ✅ Fungsi baru untuk menyimpan atau memperbarui data pelanggan
+  // Fungsi baru untuk menyimpan atau memperbarui data pelanggan
   Future<int?> _saveCustomerData() async {
     final customerProvider = Provider.of<CustomerProvider>(
       context,
@@ -116,7 +118,6 @@ class _CartPageState extends State<CartPage> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
 
-      // ✅ Ambil customerId yang valid setelah data disimpan
       int? customerId = await _saveCustomerData();
 
       final status = isPaid ? 'Selesai' : 'Diproses';
@@ -159,94 +160,144 @@ class _CartPageState extends State<CartPage> {
       text: item.quantity.toString(),
     );
     final String unit = menu.weightUnit ?? 'pcs';
+    double price = menu.priceSell;
 
     showGeneralDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       barrierColor: Colors.black54,
       barrierLabel: 'Input Quantity ${menu.name}',
       transitionDuration: const Duration(milliseconds: 300),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curvedAnimation = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutBack,
-        );
-
         return ScaleTransition(
-          scale: curvedAnimation,
-          child: FadeTransition(
-            opacity: animation.drive(
-              Tween<double>(
-                begin: 0,
-                end: 1,
-              ).chain(CurveTween(curve: Curves.easeIn)),
-            ),
-            child: child,
+          scale: CurvedAnimation(
+            parent: animation,
+            curve: Curves.fastOutSlowIn,
           ),
+          child: FadeTransition(opacity: animation, child: child),
         );
       },
       pageBuilder: (context, animation, secondaryAnimation) {
         return AlertDialog(
-          title: Text(
-            'Ubah Kuantitas ${menu.name}',
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
           ),
-          content: Row(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.remove_circle_outline),
-                onPressed: () {
-                  double current =
-                      double.tryParse(quantityController.text) ?? 1;
-                  if (current <= 1.0) {
-                    current -= 0.1;
-                    quantityController.text = current.toStringAsFixed(1);
-                  } else {
-                    current -= 1.0;
-                    quantityController.text = current.toStringAsFixed(1);
-                  }
-                },
-              ),
-              Expanded(
-                child: TextField(
-                  controller: quantityController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    border: const OutlineInputBorder(),
-                    suffixText: unit,
-                  ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          title: Text(
+            menu.name,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              color: Colors.teal,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Harga per $unit: Rp ${_formatCurrency(price)}',
+                  style: const TextStyle(fontSize: 16, color: Colors.blueGrey),
                 ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                onPressed: () {
-                  double current =
-                      double.tryParse(quantityController.text) ?? 1;
-                  if (current >= 10.0) {
-                    current += 0.1;
-                    quantityController.text = current.toStringAsFixed(1);
-                  }
-                  current += 1.0;
-                  quantityController.text = current.toStringAsFixed(1);
-                },
-              ),
-            ],
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle, color: Colors.red),
+                      onPressed: () {
+                        double current =
+                            double.tryParse(quantityController.text) ?? 1;
+                        if (current > 1) {
+                          current -= (unit == 'pcs' || unit == 'porsi')
+                              ? 1.0
+                              : 0.1;
+                        }
+                        quantityController.text =
+                            (unit == 'pcs' || unit == 'porsi')
+                            ? current.toStringAsFixed(0)
+                            : current.toStringAsFixed(1);
+                      },
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: quantityController,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: Colors.blueGrey.shade200,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade100,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                          ),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle, color: Colors.green),
+                      onPressed: () {
+                        double current =
+                            double.tryParse(quantityController.text) ?? 0;
+                        if (current == 0 &&
+                            (unit == 'pcs' || unit == 'porsi')) {
+                          current = 1.0;
+                        } else {
+                          current += (unit == 'pcs' || unit == 'porsi')
+                              ? 1.0
+                              : 0.1;
+                        }
+                        quantityController.text =
+                            (unit == 'pcs' || unit == 'porsi')
+                            ? current.toStringAsFixed(0)
+                            : current.toStringAsFixed(1);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
-              child: const Text('Batal'),
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(foregroundColor: Colors.blueGrey),
+              child: const Text('Batal'),
             ),
-            TextButton(
-              child: const Text('Simpan'),
+            ElevatedButton(
               onPressed: () {
-                item.quantity = double.tryParse(quantityController.text) ?? 1.0;
-                Navigator.pop(context);
+                final quantity =
+                    double.tryParse(quantityController.text) ?? 0.0;
+                if (quantity > 0) {
+                  Provider.of<OrderProvider>(
+                    context,
+                    listen: false,
+                  ).updateItemQuantity(item.menuId, quantity);
+                  Navigator.pop(context);
+                } else {
+                  CustomNotification.show(
+                    context,
+                    'Kuantitas tidak boleh 0',
+                    backgroundColor: Colors.red,
+                    icon: Icons.error,
+                  );
+                }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal.shade700,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Simpan'),
             ),
           ],
         );
@@ -300,13 +351,22 @@ class _CartPageState extends State<CartPage> {
   }
 
   void _showPaymentDialog(BuildContext context) async {
-    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+      final orderProvider = Provider.of<OrderProvider>(context, listen: false);
 
-    // ✅ Ambil customerId yang valid setelah data disimpan
-    int? customerId = await _saveCustomerData();
-    
-    // Pastikan ada item di keranjang sebelum melanjutkan
-    if (orderProvider.cart.isNotEmpty) {
+      if (orderProvider.cart.isEmpty) {
+        CustomNotification.show(
+          context,
+          'Keranjang kosong. Tambahkan menu terlebih dahulu.',
+          backgroundColor: Colors.red,
+          icon: Icons.error_outline,
+        );
+        return;
+      }
+
+      int? customerId = await _saveCustomerData();
+
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -314,7 +374,7 @@ class _CartPageState extends State<CartPage> {
             order: model_order.Order(
               id: orderProvider.editingOrderId,
               totalAmount: orderProvider.totalAmount,
-              customerId: customerId, // ✅ Gunakan customerId yang sudah valid
+              customerId: customerId,
               orderStatus: 'Diproses',
               orderTime: DateTime.now().toIso8601String(),
             ),
@@ -334,11 +394,9 @@ class _CartPageState extends State<CartPage> {
       body: Consumer3<OrderProvider, MenuProvider, CustomerProvider>(
         builder: (context, orderProvider, menuProvider, customerProvider, child) {
           final cartItems = orderProvider.cart;
-
           if (cartItems.isEmpty) {
             return const Center(child: Text('Keranjang kosong.'));
           }
-
           return Column(
             children: [
               Expanded(
@@ -355,33 +413,78 @@ class _CartPageState extends State<CartPage> {
                         isAvailable: false,
                       ),
                     );
-
-                    return Dismissible(
-                      key: Key(item.menuId.toString()),
-                      direction: DismissDirection.endToStart,
-                      onDismissed: (direction) {
-                        orderProvider.removeItemFromCart(item.menuId);
-                        CustomNotification.show(
-                          context,
-                          '${menu.name} dihapus dari keranjang',
-                          backgroundColor: Colors.orange,
-                          icon: Icons.delete_outline,
-                        );
-                      },
-                      background: Container(
-                        color: Colors.red,
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: const Icon(Icons.delete, color: Colors.white),
+                    return Card(
+                      elevation: 4,
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                      child: ListTile(
-                        onTap: () => _showEditQuantityDialog(context, item),
-                        title: Text(item.menuName),
-                        subtitle: Text(
-                          '${item.quantity.toStringAsFixed(1)} ${menu.weightUnit ?? 'pcs'} x Rp ${_formatCurrency(item.price)}',
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Dismissible(
+                        key: ValueKey(item.menuId),
+                        direction: DismissDirection.endToStart,
+                        onDismissed: (direction) {
+                          orderProvider.removeItemFromCart(item.menuId);
+                          CustomNotification.show(
+                            context,
+                            '${menu.name} dihapus dari keranjang',
+                            backgroundColor: Colors.orange,
+                            icon: Icons.delete_outline,
+                          );
+                        },
+                        background: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: const Icon(Icons.delete, color: Colors.white),
                         ),
-                        trailing: Text(
-                          'Rp ${_formatCurrency(item.price * item.quantity)}',
+                        child: ListTile(
+                          onTap: () => _showEditQuantityDialog(context, item),
+                          leading: SizedBox(
+                            width: 60,
+                            height: 60,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child:
+                                  menu.image != null && menu.image!.isNotEmpty
+                                  ? Image.file(
+                                      File(menu.image!),
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                            return Image.asset(
+                                              'assets/placeholder.png',
+                                              fit: BoxFit.cover,
+                                            );
+                                          },
+                                    )
+                                  : Image.asset(
+                                      'assets/placeholder.png',
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                          ),
+                          title: Text(
+                            item.menuName,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          subtitle: Text(
+                            '${item.quantity.toStringAsFixed(1)} ${menu.weightUnit ?? 'pcs'} x Rp ${_formatCurrency(item.price)}',
+                            style: TextStyle(color: Colors.blueGrey.shade700),
+                          ),
+                          trailing: Text(
+                            'Rp ${_formatCurrency(item.price * item.quantity)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: Colors.teal,
+                            ),
+                          ),
                         ),
                       ),
                     );
@@ -403,68 +506,101 @@ class _CartPageState extends State<CartPage> {
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
+                              color: Colors.blueGrey,
                             ),
                           ),
                           Text(
                             'Rp ${_formatCurrency(orderProvider.totalAmount)}',
                             style: const TextStyle(
-                              fontSize: 20,
+                              fontSize: 24,
                               fontWeight: FontWeight.bold,
-                              color: Colors.blue,
+                              color: Colors.teal,
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 16),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: TextFormField(
+                          controller: _customerNameController,
+                          decoration: InputDecoration(
+                            labelText: 'Nama Pelanggan',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            suffixIcon: IconButton(
+                              icon: const Icon(
+                                Icons.person_search,
+                                color: Colors.blueGrey,
+                              ),
+                              onPressed: () {
+                                _showCustomerSelectionDialog(
+                                  context,
+                                  customerProvider,
+                                );
+                              },
+                            ),
+                          ),
+                          validator: (value) => value!.isEmpty
+                              ? 'Nama pelanggan wajib diisi.'
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
                           Expanded(
                             child: TextFormField(
-                              controller: _customerNameController,
+                              controller: _guestCountController,
                               decoration: const InputDecoration(
-                                labelText: 'Nama Pelanggan',
+                                labelText: 'Jumlah Tamu',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(12),
+                                  ),
+                                ),
                               ),
+                              keyboardType: TextInputType.number,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.person_search),
-                            onPressed: () {
-                              _showCustomerSelectionDialog(
-                                context,
-                                customerProvider,
-                              );
-                            },
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _tableNumberController,
+                              decoration: const InputDecoration(
+                                labelText: 'Nomor Meja',
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(12),
+                                  ),
+                                ),
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
                           ),
                         ],
                       ),
-                      TextFormField(
-                        controller: _tableNumberController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nomor Meja (opsional)',
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      TextFormField(
-                        controller: _guestCountController,
-                        decoration: const InputDecoration(
-                          labelText: 'Jumlah Tamu (opsional)',
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: _notesController,
                         decoration: const InputDecoration(
                           labelText: 'Catatan (opsional)',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                          ),
                         ),
                         maxLines: 2,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                       Row(
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: () =>
-                                  _saveOrder(context, isPaid: false),
+                              onPressed: () => _saveOrder(context),
                               icon: const Icon(
                                 FontAwesomeIcons.solidFloppyDisk,
                                 size: 20,
@@ -474,10 +610,13 @@ class _CartPageState extends State<CartPage> {
                                 style: TextStyle(fontSize: 16),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey,
+                                backgroundColor: Colors.blueGrey,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                             ),
@@ -495,10 +634,13 @@ class _CartPageState extends State<CartPage> {
                                 style: TextStyle(fontSize: 16),
                               ),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
+                                backgroundColor: Colors.teal.shade700,
                                 foregroundColor: Colors.white,
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                             ),

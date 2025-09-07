@@ -27,7 +27,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 5,
+      version: 7,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -114,6 +114,15 @@ class DatabaseHelper {
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 5) {
       await db.execute("ALTER TABLE order_items ADD COLUMN menuName TEXT;");
+    }
+    if (oldVersion < 6) {
+      await db.execute("ALTER TABLE categories ADD COLUMN orderPosition INTEGER;");
+      await db.execute("ALTER TABLE categories ADD COLUMN createdAt TEXT;");
+      await db.execute("ALTER TABLE categories ADD COLUMN updatedAt TEXT;");
+    }
+    if (oldVersion < 7) {
+      await db.execute("ALTER TABLE orders ADD COLUMN paid_amount REAL;");
+      await db.execute("ALTER TABLE orders ADD COLUMN change_amount REAL;");
     }
   }
 }

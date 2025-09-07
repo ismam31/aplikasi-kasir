@@ -3,16 +3,22 @@ import 'package:provider/provider.dart';
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
 import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
 import 'package:aplikasi_kasir_seafood/models/menu.dart' as model_menu;
-import 'package:aplikasi_kasir_seafood/models/order_item.dart' as model_order_item;
+import 'package:aplikasi_kasir_seafood/models/order_item.dart'
+    as model_order_item;
 import 'package:aplikasi_kasir_seafood/providers/order_list_provider.dart';
+import 'package:aplikasi_kasir_seafood/providers/setting_provider.dart';
 import 'package:aplikasi_kasir_seafood/providers/customer_provider.dart';
 import 'package:aplikasi_kasir_seafood/providers/menu_provider.dart';
 import 'package:aplikasi_kasir_seafood/providers/order_provider.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
+import 'package:aplikasi_kasir_seafood/widgets/custom_notification.dart';
 import 'package:aplikasi_kasir_seafood/pages/order_page.dart';
 import 'package:aplikasi_kasir_seafood/pages/payment_page.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import "package:blue_thermal_printer/blue_thermal_printer.dart";
+import 'package:aplikasi_kasir_seafood/models/setting.dart' as model_setting;
 import 'package:intl/intl.dart';
+import 'package:aplikasi_kasir_seafood/services/order_service.dart';
 
 class OrderDetailsPage extends StatefulWidget {
   final model_order.Order order;
@@ -24,87 +30,295 @@ class OrderDetailsPage extends StatefulWidget {
 }
 
 class _OrderDetailsPageState extends State<OrderDetailsPage> {
+  final BlueThermalPrinter printer = BlueThermalPrinter.instance;
+  final OrderService _orderService = OrderService();
+
+  model_order.Order? order;
+  List<model_order_item.OrderItem> items = [];
+  model_customer.Customer? customer;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrderData();
+  }
+
+  Future<void> _loadOrderData() async {
+    try {
+      final fetchedOrder = await _orderService.getOrderById(widget.order.id!);
+      final fetchedItems = await _orderService.getOrderItems(widget.order.id!);
+
+      model_customer.Customer? fetchedCustomer;
+      if (fetchedOrder?.customerId != null) {
+        fetchedCustomer = await _orderService.getCustomerById(
+          fetchedOrder!.customerId!,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        order = fetchedOrder;
+        items = fetchedItems;
+        customer = fetchedCustomer;
+        isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      _showNotification(
+        'Gagal memuat data pesanan: $e',
+        Colors.red,
+        Icons.error_outline,
+      );
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,###', 'id_ID');
     return formatter.format(amount);
   }
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<OrderListProvider>(context, listen: false).loadOrders();
-      Provider.of<CustomerProvider>(context, listen: false).loadCustomers();
-      Provider.of<MenuProvider>(context, listen: false).loadMenus();
-    });
+  void _showNotification(String message, Color color, IconData icon) {
+    if (mounted) {
+      CustomNotification.show(
+        context,
+        message,
+        backgroundColor: color,
+        icon: icon,
+      );
+    }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: const CustomAppBar(
-        title: 'Detail Pesanan',
-        showBackButton: true,
-      ),
-      body: Consumer3<OrderListProvider, MenuProvider, CustomerProvider>(
-        builder: (context, orderListProvider, menuProvider, customerProvider, child) {
-          final order = widget.order;
+  // Metode untuk menampilkan dialog cetak
+  void _showPrintDialog(model_setting.Setting setting) async {
+    List<BluetoothDevice> devices = await printer.getBondedDevices();
+    BluetoothDevice? selectedDevice;
+    bool isConnected = await printer.isConnected ?? false;
+    if (!mounted) return;
 
-          if (orderListProvider.isLoading || menuProvider.isLoading || customerProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Cetak Struk"),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isConnected
+                          ? 'Status: Printer Terhubung'
+                          : 'Status: Printer Belum Terhubung',
+                      style: TextStyle(
+                        color: isConnected ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Pilih perangkat Bluetooth:',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
 
-          final customer = customerProvider.customers.firstWhere(
-            (c) => c.id == order.customerId,
-            orElse: () => model_customer.Customer(name: 'Pelanggan Tidak Dikenal'),
-          );
-
-          return FutureBuilder<List<model_order_item.OrderItem>>(
-            future: orderListProvider.getOrderItems(order.id!),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              }
-
-              final items = snapshot.data ?? [];
-              final totalAmount = items.fold(0.0, (sum, item) => sum + (item.price * item.quantity));
-
-              return Column(
-                children: [
-                  // Header Informasi Pelanggan
-                  _buildCustomerInfoCard(customer),
-                  // Daftar Item Pesanan
-                  Expanded(
-                    child: _buildOrderItemsList(items, menuProvider),
+                    // ini bagian device list biar bisa discroll
+                    devices.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text('Tidak ada perangkat terhubung.'),
+                          )
+                        : SizedBox(
+                            height: 200, // batas tinggi list (bisa lo atur)
+                            child: ListView.builder(
+                              itemCount: devices.length,
+                              itemBuilder: (context, index) {
+                                final device = devices[index];
+                                return ListTile(
+                                  title: Text(device.name ?? 'Unknown'),
+                                  subtitle: Text(device.address ?? '-'),
+                                  trailing: selectedDevice == device
+                                      ? const Icon(
+                                          Icons.check,
+                                          color: Colors.green,
+                                        )
+                                      : null,
+                                  onTap: () {
+                                    setStateDialog(() {
+                                      selectedDevice = device;
+                                    });
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  onPressed: selectedDevice != null
+                      ? () async {
+                          if (isConnected && selectedDevice != null) {
+                            await _performPrint(setting, dialogContext);
+                          } else {
+                            // Coba koneksi
+                            try {
+                              await printer.connect(selectedDevice!);
+                              await Future.delayed(const Duration(seconds: 1));
+                              final finalCheck = await printer.isConnected;
+                              if (finalCheck == true) {
+                                isConnected = true;
+                                _showNotification(
+                                  "Berhasil konek",
+                                  Colors.green,
+                                  Icons.check,
+                                );
+                                await _performPrint(setting, dialogContext);
+                              } else {
+                                _showNotification(
+                                  "Koneksi printer terputus.",
+                                  Colors.red,
+                                  Icons.error_outline,
+                                );
+                              }
+                            } catch (e) {
+                              _showNotification(
+                                "Gagal koneksi: $e",
+                                Colors.red,
+                                Icons.error_outline,
+                              );
+                            }
+                          }
+                        }
+                      : null,
+                  child: Text(
+                    isConnected ? 'Cetak Struk' : 'Hubungkan & Cetak',
                   ),
-                  const Divider(),
-                  // Bagian Total dan Tombol Aksi
-                  _buildActionSection(context, totalAmount, order),
-                ],
-              );
-            },
-          );
-        },
-      ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+  }
+
+  Future<void> _performPrint(
+    model_setting.Setting settings,
+    BuildContext dialogContext,
+  ) async {
+    if (order == null || items.isEmpty || settings.restoName == null) {
+      _showNotification(
+        "Data pesanan tidak lengkap.",
+        Colors.red,
+        Icons.error_outline,
+      );
+      return;
+    }
+
+    try {
+      // === CETAK HEADER ===
+      printer.printCustom(settings.restoName ?? "Nama Restoran", 2, 1);
+      printer.printCustom(settings.restoAddress ?? "Alamat Restoran", 1, 1);
+      printer.printCustom("================================", 1, 1);
+
+      printer.printLeftRight(
+        "Tanggal:",
+        DateFormat('dd-MM-yyyy HH:mm').format(DateTime.parse(order!.orderTime)),
+        1,
+      );
+      printer.printLeftRight("Pesanan #${order!.id}", "Kasir: Admin", 1);
+
+      final customerName = customer?.name ?? "Pelanggan Tidak Dikenal";
+      printer.printLeftRight("Pelanggan", customerName, 1);
+
+      final tableNumber = customer?.tableNumber ?? "-";
+      printer.printLeftRight("Meja", tableNumber, 1);
+
+      // === CETAK ITEM PESANAN ===
+      printer.printCustom("================================", 1, 1);
+      for (var item in items) {
+        printer.printCustom(item.menuName, 1, 0);
+        String qtyPrice =
+            "x${item.quantity.toStringAsFixed(1)} Rp${_formatCurrency(item.price)}";
+        printer.printLeftRight(
+          qtyPrice,
+          "Rp ${_formatCurrency(item.price * item.quantity)}",
+          1,
+        );
+      }
+
+      // === CETAK TOTAL ===
+      printer.printCustom("================================", 1, 1);
+      printer.printLeftRight(
+        "Total",
+        'Rp ${_formatCurrency(order!.totalAmount!)}',
+        1,
+      );
+      printer.printLeftRight(
+        "Bayar",
+        order!.paidAmount != null
+            ? 'Rp ${_formatCurrency(order!.paidAmount!)}'
+            : 'Belum Bayar',
+        1,
+      );
+      printer.printLeftRight(
+        "Kembali",
+        order!.changeAmount != null
+            ? 'Rp ${_formatCurrency(order!.changeAmount!)}'
+            : '-',
+        1,
+      );
+
+      // === CETAK FOOTER ===
+      printer.printCustom("================================", 1, 1);
+      printer.printCustom(settings.receiptMessage ?? "Terima kasih", 1, 1);
+
+      printer.printNewLine();
+      printer.printNewLine();
+
+      _showNotification(
+        "Perintah cetak berhasil dikirim",
+        Colors.green,
+        Icons.check,
+      );
+
+      Navigator.pop(dialogContext);
+    } catch (e) {
+      _showNotification("Gagal print: $e", Colors.red, Icons.error_outline);
+    }
   }
 
   Widget _buildCustomerInfoCard(model_customer.Customer customer) {
     return Card(
-      margin: const EdgeInsets.all(16.0),
-      elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text(
+              'Detail Pelanggan',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.blueGrey.shade800,
+              ),
+            ),
+            const SizedBox(height: 12),
             _buildInfoRow(
               icon: FontAwesomeIcons.user,
               label: 'Nama Pelanggan',
@@ -140,8 +354,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          FaIcon(icon, size: 16, color: Colors.blueGrey),
+          FaIcon(icon, size: 16, color: Colors.teal),
           const SizedBox(width: 12),
           Text(
             '$label:',
@@ -168,7 +383,10 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     );
   }
 
-  Widget _buildOrderItemsList(List<model_order_item.OrderItem> items, MenuProvider menuProvider) {
+  Widget _buildOrderItemsList(
+    List<model_order_item.OrderItem> items,
+    MenuProvider menuProvider,
+  ) {
     return ListView.builder(
       itemCount: items.length,
       itemBuilder: (context, index) {
@@ -185,19 +403,30 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
           elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
             title: Text(
-              menu.name,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+              item.menuName,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.blueGrey,
+              ),
             ),
             subtitle: Text(
-              'Rp ${_formatCurrency(item.price)} x ${item.quantity.toStringAsFixed(1)}',
+              '${item.quantity.toStringAsFixed(1)} ${menu.weightUnit ?? 'pcs'} x Rp ${_formatCurrency(item.price)}',
+              style: TextStyle(color: Colors.blueGrey.shade700),
             ),
             trailing: Text(
               'Rp ${_formatCurrency(item.price * item.quantity)}',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.green,
+                color: Colors.teal,
               ),
             ),
           ),
@@ -206,9 +435,27 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     );
   }
 
-  Widget _buildActionSection(BuildContext context, double totalAmount, model_order.Order order) {
-    return Padding(
+  Widget _buildActionSection(
+    BuildContext context,
+    double totalAmount,
+    model_order.Order order,
+    model_customer.Customer customer,
+    List<model_order_item.OrderItem> items,
+    model_setting.Setting? setting,
+  ) {
+    return Container(
       padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 15,
+            spreadRadius: 2,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
       child: Column(
         children: [
           Row(
@@ -216,11 +463,19 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             children: [
               const Text(
                 'Total:',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blueGrey,
+                ),
               ),
               Text(
                 'Rp ${_formatCurrency(totalAmount)}',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal,
+                ),
               ),
             ],
           ),
@@ -230,19 +485,26 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () async {
-                    await Provider.of<OrderProvider>(context, listen: false).loadOrderToCart(order.id!);
+                    await Provider.of<OrderProvider>(
+                      context,
+                      listen: false,
+                    ).loadOrderToCart(order.id!);
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const OrderPage()),
+                      MaterialPageRoute(
+                        builder: (context) => const OrderPage(),
+                      ),
                     );
                   },
                   icon: const Icon(FontAwesomeIcons.solidPenToSquare, size: 20),
-                  label: const Text('Edit Pesanan', style: TextStyle(fontSize: 16)),
+                  label: const Text('Edit', style: TextStyle(fontSize: 16)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue.shade700,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -250,7 +512,35 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    // Navigate to PaymentPage, passing the total amount and order ID
+                    if (setting == null) {
+                      _showNotification(
+                        "Pengaturan belum diset",
+                        Colors.red,
+                        Icons.error_outline,
+                      );
+                      return;
+                    }
+                    _showPrintDialog(setting);
+                  },
+                  icon: const FaIcon(FontAwesomeIcons.print, size: 20),
+                  label: const Text(
+                    'Cetak Struk',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -272,13 +562,87 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     backgroundColor: Colors.green.shade700,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: const CustomAppBar(title: 'Detail Pesanan', showBackButton: true),
+      body: Consumer3<OrderListProvider, MenuProvider, CustomerProvider>(
+        builder:
+            (
+              context,
+              orderListProvider,
+              menuProvider,
+              customerProvider,
+              child,
+            ) {
+              final order = widget.order;
+
+              if (orderListProvider.isLoading ||
+                  menuProvider.isLoading ||
+                  customerProvider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final settingProvider = Provider.of<SettingProvider>(context);
+
+              final customer = customerProvider.customers.firstWhere(
+                (c) => c.id == order.customerId,
+                orElse: () => model_customer.Customer(
+                  id: 0,
+                  name: 'Pelanggan Tidak Dikenal',
+                  tableNumber: null,
+                ),
+              );
+
+              return FutureBuilder<List<model_order_item.OrderItem>>(
+                future: orderListProvider.getOrderItems(order.id!),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  final items = snapshot.data ?? [];
+                  final totalAmount = items.fold(
+                    0.0,
+                    (sum, item) => sum + (item.price * item.quantity),
+                  );
+
+                  return Column(
+                    children: [
+                      _buildCustomerInfoCard(customer),
+                      Expanded(
+                        child: _buildOrderItemsList(items, menuProvider),
+                      ),
+                      const Divider(),
+                      _buildActionSection(
+                        context,
+                        totalAmount,
+                        order,
+                        customer,
+                        items,
+                        settingProvider.settings,
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
       ),
     );
   }

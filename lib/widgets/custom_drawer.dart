@@ -10,122 +10,170 @@ import 'package:aplikasi_kasir_seafood/pages/menu_management_page.dart';
 import 'package:aplikasi_kasir_seafood/pages/category_page.dart';
 
 class CustomDrawer extends StatelessWidget {
-  const CustomDrawer({Key? key}) : super(key: key);
+  final String currentPage;
+
+  const CustomDrawer({super.key, required this.currentPage});
 
   @override
   Widget build(BuildContext context) {
     return Drawer(
+      // Mengatur warna latar belakang drawer
+      backgroundColor: Colors.white,
       child: ListView(
         padding: EdgeInsets.zero,
         children: <Widget>[
-          // Bagian header drawer
-          DrawerHeader(
-            decoration: BoxDecoration(color: Colors.blue.shade800),
-            child: const Text(
-              'Aplikasi Kasir Seafood',
-              style: TextStyle(color: Colors.white, fontSize: 24),
+          // Bagian header drawer dengan gradien warna yang menarik
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF00796B), Color(0xFF004D40)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.only(
+                bottomRight: Radius.circular(30),
+              ),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Icon aplikasi
+                Icon(
+                  FontAwesomeIcons.fish,
+                  color: Colors.white,
+                  size: 50,
+                ),
+                SizedBox(height: 10),
+                // Judul aplikasi
+                Text(
+                  'Aplikasi Kasir Seafood',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 5),
+                // Subtitle
+                Text(
+                  'Sistem Manajemen Restoran',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
           ),
-          // Item navigasi untuk Dashboard
-          ListTile(
-            leading: const Icon(FontAwesomeIcons.house, size: 20),
-            title: const Text('Dashboard', style: TextStyle(fontSize: 20)),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const DashboardPage()),
-              );
-            },
+          const SizedBox(height: 10),
+          // Item navigasi dengan gaya yang lebih modern
+          _buildDrawerItem(
+            context,
+            icon: FontAwesomeIcons.house,
+            title: 'Dashboard',
+            page: const DashboardPage(),
+            routeName: 'Dashboard',
+            isSelected: currentPage == 'Dashboard',
           ),
-          ListTile(
-            leading: const Icon(FontAwesomeIcons.utensils, size: 20),
-            title: const Text('Manajemen Menu', style: TextStyle(fontSize: 20)),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const MenuManagementPage(),
-                ),
-              );
-            },
+          _buildDrawerItem(
+            context,
+            icon: FontAwesomeIcons.utensils,
+            title: 'Manajemen Menu',
+            page: const MenuManagementPage(),
+            routeName: 'Manajemen Menu',
+            isSelected: currentPage == 'Manajemen Menu',
           ),
-          ListTile(
-            leading: const Icon(FontAwesomeIcons.tags, size: 20),
-            title: const Text('Kategori', style: TextStyle(fontSize: 20)),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const CategoryPage()),
-              );
-            },
+          _buildDrawerItem(
+            context,
+            icon: FontAwesomeIcons.tags,
+            title: 'Kategori',
+            page: const CategoryPage(),
+            routeName: 'Kategori',
+            isSelected: currentPage == 'Kategori',
           ),
-          ListTile(
-            leading: const Icon(FontAwesomeIcons.cartShopping, size: 20),
-            title: const Text('Pemesanan', style: TextStyle(fontSize: 20)),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const OrderPage()),
-              );
-            },
+          const Divider(indent: 20, endIndent: 20, thickness: 1),
+          _buildDrawerItem(
+            context,
+            icon: FontAwesomeIcons.cartShopping,
+            title: 'Pemesanan',
+            page: const OrderPage(),
+            routeName: 'Pemesanan',
+            isSelected: currentPage == 'Pemesanan',
           ),
-          ListTile(
-            leading: const Icon(FontAwesomeIcons.list, size: 20),
-            title: const Text('Pesanan Aktif', style: TextStyle(fontSize: 20)),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ActiveOrdersPage(),
-                ),
-              );
-            },
+          _buildDrawerItem(
+            context,
+            icon: FontAwesomeIcons.list,
+            title: 'Pesanan Aktif',
+            page: const ActiveOrdersPage(),
+            routeName: 'Pesanan Aktif',
+            isSelected: currentPage == 'Pesanan Aktif',
           ),
-          ListTile(
-            leading: const Icon(FontAwesomeIcons.history, size: 20),
-            title: const Text(
-              'Riwayat Pesanan',
-              style: TextStyle(fontSize: 20),
-            ),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const OrderHistoryPage(),
-                ),
-              );
-            },
+          _buildDrawerItem(
+            context,
+            icon: FontAwesomeIcons.history,
+            title: 'Riwayat Pesanan',
+            page: const OrderHistoryPage(),
+            routeName: 'Riwayat Pesanan',
+            isSelected: currentPage == 'Riwayat Pesanan',
           ),
-          ListTile(
-            leading: const Icon(FontAwesomeIcons.chartBar, size: 20),
-            title: const Text('Laporan', style: TextStyle(fontSize: 20)),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const ReportPage()),
-              );
-            },
+          const Divider(indent: 20, endIndent: 20, thickness: 1),
+          _buildDrawerItem(
+            context,
+            icon: FontAwesomeIcons.chartBar,
+            title: 'Laporan',
+            page: const ReportPage(),
+            routeName: 'Laporan',
+            isSelected: currentPage == 'Laporan',
           ),
-          ListTile(
-            leading: const Icon(FontAwesomeIcons.gear, size: 20),
-            title: const Text('Pengaturan', style: TextStyle(fontSize: 20)),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsPage()),
-              );
-            },
+          _buildDrawerItem(
+            context,
+            icon: FontAwesomeIcons.gear,
+            title: 'Pengaturan',
+            page: const SettingsPage(),
+            routeName: 'Pengaturan',
+            isSelected: currentPage == 'Pengaturan',
           ),
-          const Divider(),
         ],
+      ),
+    );
+  }
+
+  // Widget pembantu untuk membuat item drawer dengan gaya yang konsisten
+  Widget _buildDrawerItem(BuildContext context, {
+    required IconData icon,
+    required String title,
+    required Widget page,
+    required String routeName,
+    bool isSelected = false,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: isSelected ? Colors.teal.shade50 : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          size: 20,
+          color: isSelected ? const Color(0xFF00796B) : Colors.blueGrey.shade800,
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? const Color(0xFF00796B) : Colors.blueGrey.shade800,
+          ),
+        ),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => page),
+          );
+        },
       ),
     );
   }

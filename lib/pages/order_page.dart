@@ -7,6 +7,7 @@ import 'package:aplikasi_kasir_seafood/providers/menu_provider.dart';
 import 'package:aplikasi_kasir_seafood/providers/order_provider.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_drawer.dart';
+import 'package:aplikasi_kasir_seafood/widgets/custom_notification.dart';
 import 'package:aplikasi_kasir_seafood/pages/cart_page.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
@@ -41,7 +42,6 @@ class _OrderPageState extends State<OrderPage> {
     super.dispose();
   }
 
-  // Metode untuk format angka
   String _formatCurrency(double amount) {
     final formatter = NumberFormat('#,###', 'id_ID');
     return formatter.format(amount);
@@ -51,7 +51,7 @@ class _OrderPageState extends State<OrderPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Pemesanan'),
-      drawer: const CustomDrawer(),
+      drawer: const CustomDrawer(currentPage: 'Pemesanan'),
       body: Consumer2<CategoryProvider, MenuProvider>(
         builder: (context, categoryProvider, menuProvider, child) {
           if (categoryProvider.isLoading || menuProvider.isLoading) {
@@ -76,34 +76,51 @@ class _OrderPageState extends State<OrderPage> {
             filteredMenus.sort((a, b) => b.name.compareTo(a.name));
           }
 
-          return Scaffold(
-            body: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: Colors.grey[200],
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: TextField(
-                                controller: _searchController,
-                                decoration: const InputDecoration(
-                                  hintText: 'Cari menu...',
-                                  border: InputBorder.none,
-                                  prefixIcon: Icon(Icons.search),
+          return Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: InputDecoration(
+                                hintText: 'Cari menu...',
+                                border: InputBorder.none,
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: Colors.blueGrey,
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 14.0,
                                 ),
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
-                          DropdownButton<String>(
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 72,
+                          child: DropdownButtonFormField<String>(
                             value: _sortOrder,
+                            decoration: InputDecoration(
+                              labelText: 'Urutkan',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                            ),
                             items: const [
                               DropdownMenuItem(value: 'az', child: Text('A-Z')),
                               DropdownMenuItem(value: 'za', child: Text('Z-A')),
@@ -114,89 +131,115 @@ class _OrderPageState extends State<OrderPage> {
                               });
                             },
                           ),
-                          IconButton(
-                            icon: Icon(
-                              _isGridView ? Icons.view_list : Icons.grid_view,
-                            ),
-                            onPressed: () {
+                        ),
+                        IconButton(
+                          icon: Icon(
+                            _isGridView
+                                ? Icons.view_list_rounded
+                                : Icons.grid_view_rounded,
+                            color: Colors.teal.shade700,
+                            size: 30,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isGridView = !_isGridView;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ChoiceChip(
+                            label: const Text('Semua'),
+                            selected: _selectedCategory == null,
+                            onSelected: (selected) {
                               setState(() {
-                                _isGridView = !_isGridView;
+                                _selectedCategory = null;
                               });
                             },
+                            selectedColor: Colors.teal.shade50,
+                            backgroundColor: Colors.grey.shade200,
+                            labelStyle: TextStyle(
+                              color: _selectedCategory == null
+                                  ? Colors.teal.shade900
+                                  : Colors.blueGrey,
+                            ),
+                            showCheckmark: false,
                           ),
+                          ...categoryProvider.categories.map((category) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6.0,
+                              ),
+                              child: ChoiceChip(
+                                label: Text(category.name!),
+                                selected: _selectedCategory?.id == category.id,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    _selectedCategory = selected
+                                        ? category
+                                        : null;
+                                  });
+                                },
+                                selectedColor: Colors.teal.shade50,
+                                backgroundColor: Colors.grey.shade200,
+                                labelStyle: TextStyle(
+                                  color: _selectedCategory?.id == category.id
+                                      ? Colors.teal.shade900
+                                      : Colors.blueGrey,
+                                ),
+                                showCheckmark: false,
+                              ),
+                            );
+                          }),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            ChoiceChip(
-                              label: const Text('Semua'),
-                              selected: _selectedCategory == null,
-                              onSelected: (selected) {
-                                setState(() {
-                                  _selectedCategory = null;
-                                });
-                              },
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: filteredMenus.isEmpty
+                    ? const Center(
+                        child: Text('Tidak ada menu yang ditemukan.'),
+                      )
+                    : _isGridView
+                    ? GridView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 0.0,
+                        ),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 10.0,
+                              mainAxisSpacing: 10.0,
+                              childAspectRatio: 0.6,
                             ),
-                            ...categoryProvider.categories.map((category) {
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4.0,
-                                ),
-                                child: ChoiceChip(
-                                  label: Text(category.name!),
-                                  selected:
-                                      _selectedCategory?.id == category.id,
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      _selectedCategory = selected
-                                          ? category
-                                          : null;
-                                    });
-                                  },
-                                ),
-                              );
-                            }),
-                          ],
+                        itemCount: filteredMenus.length,
+                        itemBuilder: (context, index) {
+                          final menu = filteredMenus[index];
+                          return _buildMenuItemCard(context, menu);
+                        },
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16.0,
+                          vertical: 0.0,
                         ),
+                        itemCount: filteredMenus.length,
+                        itemBuilder: (context, index) {
+                          final menu = filteredMenus[index];
+                          return _buildMenuItemListTile(context, menu);
+                        },
                       ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: _isGridView
-                      ? GridView.builder(
-                          padding: const EdgeInsets.all(16.0),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 5.0,
-                                mainAxisSpacing: 5.0,
-                                childAspectRatio: 0.7,
-                              ),
-                          itemCount: filteredMenus.length,
-                          itemBuilder: (context, index) {
-                            final menu = filteredMenus[index];
-                            return _buildMenuItemCard(context, menu);
-                          },
-                        )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 0.0,
-                          ),
-                          itemCount: filteredMenus.length,
-                          itemBuilder: (context, index) {
-                            final menu = filteredMenus[index];
-                            return _buildMenuItemListTile(context, menu);
-                          },
-                        ),
-                ),
-                _buildCartView(context),
-              ],
-            ),
+              ),
+              _buildCartView(context),
+            ],
           );
         },
       ),
@@ -204,12 +247,12 @@ class _OrderPageState extends State<OrderPage> {
   }
 
   Widget _buildMenuItemCard(BuildContext context, model_menu.Menu menu) {
-    final isAvailable = menu.isAvailable; // fallback true
+    final isAvailable = menu.isAvailable;
     return InkWell(
       onTap: isAvailable ? () => _showQuantityDialog(context, menu) : null,
       child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Stack(
           children: [
             Column(
@@ -218,10 +261,19 @@ class _OrderPageState extends State<OrderPage> {
                 Expanded(
                   child: ClipRRect(
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(12),
+                      top: Radius.circular(16),
                     ),
                     child: menu.image != null && menu.image!.isNotEmpty
-                        ? Image.file(File(menu.image!), fit: BoxFit.cover)
+                        ? Image.file(
+                            File(menu.image!),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              return Image.asset(
+                                'assets/placeholder.png',
+                                fit: BoxFit.cover,
+                              );
+                            },
+                          )
                         : Image.asset(
                             'assets/placeholder.png',
                             fit: BoxFit.cover,
@@ -229,33 +281,68 @@ class _OrderPageState extends State<OrderPage> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.all(8.0),
+                  padding: const EdgeInsets.all(12.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         menu.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
-                      Text('Rp ${_formatCurrency(menu.priceSell)}'),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Rp ${_formatCurrency(menu.priceSell)}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: Colors.blueGrey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isAvailable
+                              ? Colors.green.shade50
+                              : Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          isAvailable ? 'Tersedia' : 'Tidak Tersedia',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isAvailable
+                                ? Colors.green.shade700
+                                : Colors.red.shade700,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
             if (!isAvailable)
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Center(
-                  child: Text(
-                    'Tidak Tersedia',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'Tidak Tersedia',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -268,52 +355,65 @@ class _OrderPageState extends State<OrderPage> {
 
   Widget _buildMenuItemListTile(BuildContext context, model_menu.Menu menu) {
     final isAvailable = menu.isAvailable;
-    return Column(
-      children: [
-        ListTile(
-          leading: SizedBox(
-            width: 60,
-            height: 60,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: menu.image != null && menu.image!.isNotEmpty
-                  ? Image.file(File(menu.image!), fit: BoxFit.cover)
-                  : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
-            ),
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        onTap: isAvailable ? () => _showQuantityDialog(context, menu) : null,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: SizedBox(
+          width: 70,
+          height: 60,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: menu.image != null && menu.image!.isNotEmpty
+                ? Image.file(
+                    File(menu.image!),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        'assets/placeholder.png',
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  )
+                : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
           ),
-          title: Text(
-            menu.name,
-            style: TextStyle(
+        ),
+        title: Text(
+          menu.name,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isAvailable ? Colors.blueGrey.shade900 : Colors.grey,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
+        subtitle: Text(
+          isAvailable
+              ? 'Rp ${_formatCurrency(menu.priceSell)}'
+              : 'Tidak Tersedia',
+          style: TextStyle(
+            color: isAvailable ? Colors.blueGrey.shade700 : Colors.red,
+            fontWeight: isAvailable ? FontWeight.normal : FontWeight.bold,
+          ),
+        ),
+        trailing: Container(
+          decoration: BoxDecoration(
+            color: isAvailable ? Colors.green.shade700 : Colors.red.shade700,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            isAvailable ? 'Tersedia' : 'Tidak Tersedia',
+            style: const TextStyle(
+              color: Colors.white,
               fontWeight: FontWeight.bold,
-              color: isAvailable ? Colors.black : Colors.grey,
-            ),
-          ),
-          subtitle: Text(
-            isAvailable
-                ? 'Rp ${_formatCurrency(menu.priceSell)}'
-                : 'Tidak Tersedia',
-            style: TextStyle(color: isAvailable ? Colors.black : Colors.red),
-          ),
-          onTap: isAvailable ? () => _showQuantityDialog(context, menu) : null,
-          trailing: Container(
-            decoration: BoxDecoration(
-              color: isAvailable ? Colors.green : Colors.red,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Text(
-              isAvailable ? 'Tersedia' : 'Tidak Tersedia',
-              style: const TextStyle(color: Colors.white),
+              fontSize: 12,
             ),
           ),
         ),
-        const Divider(
-          // 🔹 ini garis bawahnya
-          thickness: 1,
-          height: 1,
-          color: Colors.grey,
-        ),
-      ],
+      ),
     );
   }
 
@@ -326,91 +426,111 @@ class _OrderPageState extends State<OrderPage> {
 
     showGeneralDialog(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       barrierColor: Colors.black54,
       barrierLabel: 'Input Quantity ${menu.name}',
       transitionDuration: const Duration(milliseconds: 300),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curvedAnimation = CurvedAnimation(
-          parent: animation,
-          curve: Curves.easeOutBack,
-        );
-
         return ScaleTransition(
-          scale: curvedAnimation,
-          child: FadeTransition(
-            opacity: animation.drive(
-              Tween<double>(
-                begin: 0,
-                end: 1,
-              ).chain(CurveTween(curve: Curves.easeIn)),
-            ),
-            child: child,
+          scale: CurvedAnimation(
+            parent: animation,
+            curve: Curves.fastOutSlowIn,
           ),
+          child: FadeTransition(opacity: animation, child: child),
         );
       },
       pageBuilder: (context, animation, secondaryAnimation) {
         return AlertDialog(
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Input Quantity ${menu.name}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text('Harga per $unit: Rp ${_formatCurrency(price)}'),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  // Tombol minus
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline),
-                    onPressed: () {
-                      double current =
-                          double.tryParse(quantityController.text) ?? 1;
-                      if (current <= 1.0) {
-                        current -= 0.1;
-                        quantityController.text = current.toStringAsFixed(1);
-                      } else {
-                        current -= 1.0;
-                        quantityController.text = current.toStringAsFixed(1);
-                      }
-                    },
-                  ),
-                  // TextField
-                  Expanded(
-                    child: TextField(
-                      controller: quantityController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      decoration: InputDecoration(
-                        border: const OutlineInputBorder(),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+          contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+          actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          title: Text(
+            menu.name,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+              color: Colors.teal,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Harga per $unit: Rp ${_formatCurrency(price)}',
+                  style: const TextStyle(fontSize: 16, color: Colors.blueGrey),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle, color: Colors.red),
+                      onPressed: () {
+                        double current =
+                            double.tryParse(quantityController.text) ?? 1;
+                        if (current > 1) {
+                          current -= (unit == 'pcs' || unit == 'porsi')
+                              ? 1.0
+                              : 0.1;
+                        }
+                        quantityController.text =
+                            (unit == 'pcs' || unit == 'porsi')
+                            ? current.toStringAsFixed(0)
+                            : current.toStringAsFixed(1);
+                      },
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: quantityController,
+                        keyboardType: TextInputType.number,
+                        textAlign: TextAlign.center,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: Colors.blueGrey.shade200,
+                            ),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade100,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                  // Tombol plus
-                  IconButton(
-                    icon: const Icon(Icons.add_circle_outline),
-                    onPressed: () {
-                      double current =
-                          double.tryParse(quantityController.text) ?? 1;
-                      if (current < 1.0) {
-                        current += 0.1;
-                        quantityController.text = current.toStringAsFixed(1);
-                      } else {
-                        current += 1.0;
-                        quantityController.text = current.toStringAsFixed(1);
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ],
+                    IconButton(
+                      icon: const Icon(Icons.add_circle, color: Colors.green),
+                      onPressed: () {
+                        double current =
+                            double.tryParse(quantityController.text) ?? 0;
+                        if (current == 0 &&
+                            (unit == 'pcs' || unit == 'porsi')) {
+                          current = 1.0;
+                        } else {
+                          current += (unit == 'pcs' || unit == 'porsi')
+                              ? 1.0
+                              : 0.1;
+                        }
+                        quantityController.text =
+                            (unit == 'pcs' || unit == 'porsi')
+                            ? current.toStringAsFixed(0)
+                            : current.toStringAsFixed(1);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(foregroundColor: Colors.blueGrey),
               child: const Text('Batal'),
             ),
             ElevatedButton(
@@ -423,12 +543,28 @@ class _OrderPageState extends State<OrderPage> {
                     listen: false,
                   ).addItemToCart(menu: menu, quantity: quantity);
                   Navigator.pop(context);
+                  CustomNotification.show(
+                    context,
+                    '${menu.name} berhasil ditambahkan ke keranjang',
+                    backgroundColor: Colors.green,
+                    icon: Icons.check,
+                  );
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Kuantitas tidak boleh 0')),
+                  CustomNotification.show(
+                    context,
+                    'Kuantitas tidak boleh 0',
+                    backgroundColor: Colors.red,
+                    icon: Icons.error,
                   );
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.teal.shade700,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Tambahkan'),
             ),
           ],
@@ -440,66 +576,77 @@ class _OrderPageState extends State<OrderPage> {
   Widget _buildCartView(BuildContext context) {
     return Consumer<OrderProvider>(
       builder: (context, orderProvider, child) {
-        return Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
+        return Visibility(
+          visible: orderProvider.cart.isNotEmpty,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(20),
               ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Total:',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade800,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total:',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blueGrey,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Rp ${_formatCurrency(orderProvider.totalAmount)}',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+                    Text(
+                      'Rp ${_formatCurrency(orderProvider.totalAmount)}',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: orderProvider.cart.isEmpty
-                      ? null
-                      : () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CartPage(),
-                            ),
-                          );
-                        },
-                  icon: const Icon(Icons.shopping_cart),
-                  label: const Text('Lihat Keranjang & Checkout'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade800,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CartPage(),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.shopping_cart, color: Colors.white),
+                    label: Text(
+                      'Lihat Keranjang (${orderProvider.cart.length})',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal.shade700,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
