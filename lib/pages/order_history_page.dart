@@ -88,7 +88,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Riwayat Pesanan'),
-      drawer: const CustomDrawer(),
+      drawer: const CustomDrawer(currentPage: 'Riwayat Pesanan',),
       body: Consumer2<OrderListProvider, CustomerProvider>(
         builder: (context, orderListProvider, customerProvider, child) {
           if (orderListProvider.isLoading || customerProvider.isLoading) {

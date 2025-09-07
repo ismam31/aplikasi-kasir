@@ -18,12 +18,28 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: const BorderRadius.only(
-        bottomLeft: Radius.circular(20),
-        bottomRight: Radius.circular(20),
+        bottomLeft: Radius.circular(30), // Ukuran radius yang sedikit lebih besar
+        bottomRight: Radius.circular(30), // Ukuran radius yang sedikit lebih besar
       ),
       child: Container(
         height: height,
-        color: Colors.blue.shade800,
+        decoration: BoxDecoration(
+          // Menggunakan gradien agar tampilan lebih menarik
+          gradient: LinearGradient(
+            colors: [Colors.teal.shade800, Colors.teal.shade500],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+          // Menambahkan bayangan untuk efek elevasi
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              spreadRadius: 2,
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
         padding: EdgeInsets.only(
           top: MediaQuery.of(context).padding.top,
           left: 16,
@@ -51,7 +67,15 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   color: Colors.white,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black26,
+                      offset: Offset(1, 1),
+                      blurRadius: 2,
+                    ),
+                  ],
                 ),
+                overflow: TextOverflow.ellipsis, // Mencegah teks meluap
               ),
             ),
             if (actions != null) Row(children: actions!),

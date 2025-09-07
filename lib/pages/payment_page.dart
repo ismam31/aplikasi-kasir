@@ -1,14 +1,13 @@
-import 'package:aplikasi_kasir_seafood/models/order_item.dart'
-    as model_order_item;
-import 'package:aplikasi_kasir_seafood/services/order_service.dart';
+import 'package:aplikasi_kasir_seafood/widgets/custom_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
 import 'package:aplikasi_kasir_seafood/pages/success_page.dart';
 import 'package:aplikasi_kasir_seafood/providers/order_provider.dart';
+import 'package:aplikasi_kasir_seafood/services/order_service.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
-import 'package:aplikasi_kasir_seafood/widgets/custom_notification.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class PaymentPage extends StatefulWidget {
   final model_order.Order order;
@@ -29,11 +28,11 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   double get _totalAmount => widget.order.totalAmount ?? 0.0;
-  double get _cashGiven =>
-      double.tryParse(
-        _cashController.text.replaceAll('.', '').replaceAll(',', ''),
-      ) ??
-      0.0;
+  double get _cashGiven {
+    final cleanText = _cashController.text.replaceAll('.', '');
+    return double.tryParse(cleanText) ?? 0.0;
+  }
+
   double get _changeAmount => _cashGiven - _totalAmount;
 
   @override
@@ -51,10 +50,6 @@ class _PaymentPageState extends State<PaymentPage> {
   }
 
   Future<void> _completePayment() async {
-    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
-    final orderService = OrderService();
-    final items = List<model_order_item.OrderItem>.from(orderProvider.cart);
-
     if (_selectedPaymentMethod == 'Tunai' && _changeAmount < 0) {
       CustomNotification.show(
         context,
@@ -65,47 +60,50 @@ class _PaymentPageState extends State<PaymentPage> {
       return;
     }
 
-    // 🔹 Kalau order masih baru (belum pernah disave)
+    final orderProvider = Provider.of<OrderProvider>(context, listen: false);
+    final orderService = OrderService();
+    final items = orderProvider.cart;
+    int? newOrderId;
+
     if (widget.order.id == null) {
       final newOrder = model_order.Order(
         customerId: widget.order.customerId,
-        orderStatus: 'Selesai', // langsung selesai karena bayar sekarang
+        orderStatus: 'Selesai',
         paymentMethod: _selectedPaymentMethod,
         orderTime: DateTime.now().toIso8601String(),
         totalAmount: _totalAmount,
+        paidAmount: _cashGiven,
+        changeAmount: _changeAmount,
       );
-
-      final newOrderId = await orderService.insertOrder(newOrder, items);
-
-      orderProvider.clearCart();
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SuccessPage(
-            orderId: newOrderId,
-            changeAmount: _changeAmount,
-            cashGiven: _cashGiven,
-          ),
-        ),
-      );
+      newOrderId = await orderService.insertOrder(newOrder, items);
     } else {
-      // 🔹 Kalau order udah ada (disave dulu → status Diproses)
-      await orderService.updateOrderStatus(widget.order.id!, 'Selesai');
-
-      orderProvider.clearCart();
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SuccessPage(
-            orderId: widget.order.id!,
-            changeAmount: _changeAmount,
-            cashGiven: _cashGiven,
-          ),
-        ),
+      newOrderId = widget.order.id;
+      final updatedOrder = model_order.Order(
+        id: newOrderId,
+        customerId: widget.order.customerId,
+        orderStatus: 'Selesai',
+        paymentMethod: _selectedPaymentMethod,
+        orderTime: DateTime.now().toIso8601String(),
+        totalAmount: _totalAmount,
+        paidAmount: _cashGiven,
+        changeAmount: _changeAmount,
       );
+      await orderService.updateOrder(updatedOrder, items);
     }
+
+    orderProvider.clearCart();
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SuccessPage(
+          orderId: newOrderId!,
+          cashGiven: _cashGiven,
+          changeAmount: _changeAmount,
+        ),
+      ),
+      (route) => false,
+    );
   }
 
   void _onKeyPress(String value) {
@@ -121,53 +119,101 @@ class _PaymentPageState extends State<PaymentPage> {
     } else if (value == 'pas') {
       _cashController.text = _totalAmount.toStringAsFixed(0);
     } else {
-      _cashController.text += value;
+      final currentText = _cashController.text.replaceAll('.', '');
+      final newText = currentText + value;
+      final formattedText = NumberFormat('#,###').format(double.parse(newText));
+      _cashController.text = formattedText.replaceAll(',', '.');
     }
     _cashController.selection = TextSelection.fromPosition(
       TextPosition(offset: _cashController.text.length),
     );
   }
 
-  Widget _buildKeypadButton(String text, {Color? color}) {
-    return Expanded(
+  Widget _buildPaymentSummaryCard({
+    required String title,
+    required double amount,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Card(
+      color: color.withOpacity(0.1),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withOpacity(0.5)),
+      ),
       child: Padding(
-        padding: const EdgeInsets.all(4.0),
-        child: ElevatedButton(
-          onPressed: () => _onKeyPress(text),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: color ?? Colors.grey[200],
-            foregroundColor: Colors.black87,
-            padding: const EdgeInsets.symmetric(vertical: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 30),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Rp ${_formatCurrency(amount)}',
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            minimumSize: const Size(0, 70),
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildFunctionButton(IconData icon, Function()? onPressed) {
+  Widget _buildKeypadButton(
+    String text, {
+    Color? color,
+    IconData? icon,
+    VoidCallback? onPressed,
+  }) {
+    final isIcon = icon != null;
+    final isFunction = text == 'C' || text == '<' || text == 'pas';
+
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.all(4.0),
         child: ElevatedButton(
-          onPressed: onPressed,
+          onPressed: onPressed ?? () => _onKeyPress(text),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue.shade100,
-            foregroundColor: Colors.blue.shade800,
+            backgroundColor: isFunction
+                ? Colors.blueGrey.shade100
+                : color ?? Colors.grey.shade200,
+            foregroundColor: isFunction
+                ? Colors.blueGrey.shade700
+                : Colors.black87,
             padding: const EdgeInsets.symmetric(vertical: 24),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
             minimumSize: const Size(0, 70),
           ),
-          child: Icon(icon, size: 24),
+          child: isIcon
+              ? Icon(icon, size: 28)
+              : Text(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
         ),
       ),
     );
@@ -175,13 +221,40 @@ class _PaymentPageState extends State<PaymentPage> {
 
   Widget _buildPaymentMethodChip(String method, IconData icon) {
     return ChoiceChip(
-      label: Text(method),
+      label: Row(
+        children: [
+          Icon(icon, size: 18),
+          const SizedBox(width: 8),
+          Text(method),
+        ],
+      ),
       selected: _selectedPaymentMethod == method,
       onSelected: (selected) {
-        setState(() {
-          _selectedPaymentMethod = method;
-        });
+        if (selected) {
+          setState(() {
+            _selectedPaymentMethod = method;
+          });
+        }
       },
+      selectedColor: Colors.teal.shade50,
+      backgroundColor: Colors.grey.shade200,
+      labelStyle: TextStyle(
+        color: _selectedPaymentMethod == method
+            ? Colors.teal.shade900
+            : Colors.blueGrey,
+        fontWeight: _selectedPaymentMethod == method
+            ? FontWeight.bold
+            : FontWeight.normal,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: _selectedPaymentMethod == method
+              ? Colors.teal
+              : Colors.grey.shade400,
+          width: 1.5,
+        ),
+      ),
     );
   }
 
@@ -193,52 +266,64 @@ class _PaymentPageState extends State<PaymentPage> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
               child: Column(
                 children: [
-                  const Text('Total: Rp', style: TextStyle(fontSize: 20)),
-                  Text(
-                    _formatCurrency(_totalAmount),
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  _buildPaymentSummaryCard(
+                    title: 'Total Pembayaran',
+                    amount: _totalAmount,
+                    color: Colors.teal,
+                    icon: FontAwesomeIcons.sackDollar,
                   ),
-                  const SizedBox(height: 24),
-                  const Text('Dibayarkan:', style: TextStyle(fontSize: 20)),
-                  Text(
-                    'Rp ${_cashController.text.isNotEmpty ? _formatCurrency(_cashGiven) : '0'}',
-                    style: const TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  const SizedBox(height: 8),
+                  _buildPaymentSummaryCard(
+                    title: 'Uang Dibayarkan',
+                    amount: _cashGiven,
+                    color: Colors.blue,
+                    icon: FontAwesomeIcons.wallet,
                   ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8.0,
+                  const SizedBox(height: 8),
+                  _buildPaymentSummaryCard(
+                    title: 'Kembalian',
+                    amount: _changeAmount,
+                    color: _changeAmount >= 0 ? Colors.green : Colors.red,
+                    icon: FontAwesomeIcons.moneyBillTransfer,
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildPaymentMethodChip('Tunai', Icons.money),
-                      _buildPaymentMethodChip('Transfer', Icons.attach_money),
+                      _buildPaymentMethodChip(
+                        'Tunai',
+                        FontAwesomeIcons.moneyBill,
+                      ),
+                      const SizedBox(width: 16),
+                      _buildPaymentMethodChip(
+                        'Transfer',
+                        FontAwesomeIcons.creditCard,
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 24),
-                  if (_selectedPaymentMethod == 'Tunai') ...[
-                    Text(
-                      'Kembalian: Rp ${_formatCurrency(_changeAmount)}',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: _changeAmount >= 0 ? Colors.green : Colors.red,
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),
           ),
+          // Keypad section
           Container(
             padding: const EdgeInsets.all(8.0),
-            color: Colors.grey[100],
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 15,
+                  spreadRadius: 2,
+                  offset: const Offset(0, -5),
+                ),
+              ],
+            ),
             child: Column(
               children: [
                 Row(
@@ -246,10 +331,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     _buildKeypadButton('7'),
                     _buildKeypadButton('8'),
                     _buildKeypadButton('9'),
-                    _buildFunctionButton(
-                      Icons.backspace,
-                      () => _onKeyPress('<'),
-                    ),
+                    _buildKeypadButton('<', icon: Icons.backspace),
                   ],
                 ),
                 Row(
@@ -257,7 +339,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     _buildKeypadButton('4'),
                     _buildKeypadButton('5'),
                     _buildKeypadButton('6'),
-                    _buildFunctionButton(Icons.clear, () => _onKeyPress('C')),
+                    _buildKeypadButton('C', icon: Icons.clear),
                   ],
                 ),
                 Row(
@@ -265,10 +347,7 @@ class _PaymentPageState extends State<PaymentPage> {
                     _buildKeypadButton('1'),
                     _buildKeypadButton('2'),
                     _buildKeypadButton('3'),
-                    _buildFunctionButton(
-                      Icons.monetization_on,
-                      () => _onKeyPress('pas'),
-                    ),
+                    _buildKeypadButton('pas', icon: FontAwesomeIcons.coins),
                   ],
                 ),
                 Row(
@@ -276,7 +355,12 @@ class _PaymentPageState extends State<PaymentPage> {
                     _buildKeypadButton('0'),
                     _buildKeypadButton('00'),
                     _buildKeypadButton('.'),
-                    _buildFunctionButton(Icons.check, _completePayment),
+                    _buildKeypadButton(
+                      'Bayar',
+                      color: Colors.green,
+                      onPressed: _completePayment,
+                      icon: Icons.check,
+                    ),
                   ],
                 ),
               ],

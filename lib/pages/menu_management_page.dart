@@ -9,6 +9,7 @@ import 'package:aplikasi_kasir_seafood/pages/add_edit_menu_screen.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/models/category.dart' as model_category;
+import 'package:aplikasi_kasir_seafood/providers/category_provider.dart';
 
 class MenuManagementPage extends StatefulWidget {
   const MenuManagementPage({super.key});
@@ -96,131 +97,216 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Manajemen Menu'),
-      drawer: const CustomDrawer(),
+      drawer: const CustomDrawer(currentPage: 'Manajemen Menu'),
       body: Consumer<MenuProvider>(
         builder: (context, menuProvider, child) {
           if (menuProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          List<model_menu.Menu> filteredMenus = menuProvider.menus.where((
-            menu,
-          ) {
-            final matchCategory =
-                _selectedCategory == null ||
-                menu.categoryId == _selectedCategory!.id;
-            final matchQuery = menu.name.toLowerCase().contains(
-              _searchQuery.toLowerCase(),
-            );
-            return matchCategory && matchQuery;
-          }).toList();
+          // Gunakan Consumer nested untuk mengakses CategoryProvider
+          return Consumer<CategoryProvider>(
+            builder: (context, categoryProvider, child) {
+              if (categoryProvider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          if (_sortOrder == 'az') {
-            filteredMenus.sort((a, b) => a.name.compareTo(b.name));
-          } else {
-            filteredMenus.sort((a, b) => b.name.compareTo(a.name));
-          }
+              List<model_menu.Menu> filteredMenus = [];
+              if (_selectedCategory == null) {
+                // Jika "Semua" dipilih, urutkan berdasarkan urutan kategori
+                for (final category in categoryProvider.categories) {
+                  final menusOfCategory = menuProvider.menus
+                      .where((menu) => menu.categoryId == category.id)
+                      .toList();
+                  if (_sortOrder == 'az') {
+                    menusOfCategory.sort((a, b) => a.name.compareTo(b.name));
+                  } else {
+                    menusOfCategory.sort((a, b) => b.name.compareTo(a.name));
+                  }
+                  filteredMenus.addAll(menusOfCategory);
+                }
+                // Jika ada menu tanpa kategori, tambahkan di akhir
+                final menusWithoutCategory = menuProvider.menus
+                    .where((menu) => menu.categoryId == null)
+                    .toList();
+                if (_sortOrder == 'az') {
+                  menusWithoutCategory.sort((a, b) => a.name.compareTo(b.name));
+                } else {
+                  menusWithoutCategory.sort((a, b) => b.name.compareTo(a.name));
+                }
+                filteredMenus.addAll(menusWithoutCategory);
+              } else {
+                // Jika kategori spesifik dipilih, tampilkan menu dari kategori itu saja
+                filteredMenus = menuProvider.menus
+                    .where((menu) => menu.categoryId == _selectedCategory!.id)
+                    .toList();
+                if (_sortOrder == 'az') {
+                  filteredMenus.sort((a, b) => a.name.compareTo(b.name));
+                } else {
+                  filteredMenus.sort((a, b) => b.name.compareTo(a.name));
+                }
+              }
 
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Row(
+              // Filter berdasarkan query pencarian
+              if (_searchQuery.isNotEmpty) {
+                filteredMenus = filteredMenus
+                    .where(
+                      (menu) => menu.name.toLowerCase().contains(
+                        _searchQuery.toLowerCase(),
+                      ),
+                    )
+                    .toList();
+              }
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
                       children: [
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: TextField(
-                              controller: _searchController,
-                              decoration: const InputDecoration(
-                                hintText: 'Cari menu...',
-                                border: InputBorder.none,
-                                prefixIcon: Icon(Icons.search),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: TextField(
+                                  controller: _searchController,
+                                  decoration: InputDecoration(
+                                    hintText: 'Cari menu...',
+                                    border: InputBorder.none,
+                                    prefixIcon: const Icon(
+                                      Icons.search,
+                                      color: Colors.blueGrey,
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      vertical: 14.0,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        DropdownButton<String>(
-                          value: _sortOrder,
-                          items: const [
-                            DropdownMenuItem(value: 'az', child: Text('A-Z')),
-                            DropdownMenuItem(value: 'za', child: Text('Z-A')),
-                          ],
-                          onChanged: (value) {
-                            setState(() {
-                              _sortOrder = value!;
-                            });
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(
-                            _isGridView ? Icons.view_list : Icons.grid_view,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _isGridView = !_isGridView;
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          ChoiceChip(
-                            label: const Text('Semua'),
-                            selected: _selectedCategory == null,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedCategory = null;
-                              });
-                            },
-                          ),
-                          ...menuProvider.categories.map((category) {
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4.0,
-                              ),
-                              child: ChoiceChip(
-                                label: Text(category.name!),
-                                selected: _selectedCategory?.id == category.id,
-                                onSelected: (selected) {
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 72, // atur lebar sesuai selera
+                              child: DropdownButtonFormField<String>(
+                                value: _sortOrder,
+                                decoration: InputDecoration(
+                                  labelText: 'Urutkan',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'az',
+                                    child: Text('A-Z'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'za',
+                                    child: Text('Z-A'),
+                                  ),
+                                ],
+                                onChanged: (value) {
                                   setState(() {
-                                    _selectedCategory = selected
-                                        ? category
-                                        : null;
+                                    _sortOrder = value!;
                                   });
                                 },
                               ),
-                            );
-                          }),
-                        ],
-                      ),
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                _isGridView
+                                    ? Icons.view_list_rounded
+                                    : Icons.grid_view_rounded,
+                                color: Colors.teal.shade700,
+                                size: 30,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _isGridView = !_isGridView;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              ChoiceChip(
+                                label: const Text('Semua'),
+                                selected: _selectedCategory == null,
+                                onSelected: (selected) {
+                                  setState(() {
+                                    _selectedCategory = null;
+                                  });
+                                },
+                                selectedColor: Colors.teal.shade50,
+                                backgroundColor: Colors.grey.shade200,
+                                labelStyle: TextStyle(
+                                  color: _selectedCategory == null
+                                      ? Colors.teal.shade900
+                                      : Colors.blueGrey,
+                                ),
+                                showCheckmark: false,
+                              ),
+                              ...categoryProvider.categories.map((category) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6.0,
+                                  ),
+                                  child: ChoiceChip(
+                                    label: Text(category.name!),
+                                    selected:
+                                        _selectedCategory?.id == category.id,
+                                    onSelected: (selected) {
+                                      setState(() {
+                                        _selectedCategory = selected
+                                            ? category
+                                            : null;
+                                      });
+                                    },
+                                    selectedColor: Colors.teal.shade50,
+                                    backgroundColor: Colors.grey.shade200,
+                                    labelStyle: TextStyle(
+                                      color:
+                                          _selectedCategory?.id == category.id
+                                          ? Colors.teal.shade900
+                                          : Colors.blueGrey,
+                                    ),
+                                    showCheckmark: false,
+                                  ),
+                                );
+                              }),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: filteredMenus.isEmpty
-                    ? const Center(child: Text('Tidak ada menu yang ditemukan.'))
-                    : _isGridView
+                  ),
+                  Expanded(
+                    child: filteredMenus.isEmpty
+                        ? const Center(
+                            child: Text('Tidak ada menu yang ditemukan.'),
+                          )
+                        : _isGridView
                         ? GridView.builder(
                             padding: const EdgeInsets.all(16.0),
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
-                              crossAxisSpacing: 5.0,
-                              mainAxisSpacing: 5.0,
-                              childAspectRatio: 0.5,
-                            ),
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: 10.0,
+                                  mainAxisSpacing: 10.0,
+                                  childAspectRatio: 0.6, // Mengubah rasio aspek
+                                ),
                             itemCount: filteredMenus.length,
                             itemBuilder: (context, index) {
                               final menu = filteredMenus[index];
@@ -235,8 +321,10 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
                               return _buildMenuItemListTile(context, menu);
                             },
                           ),
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           );
         },
       ),
@@ -247,53 +335,94 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
             MaterialPageRoute(builder: (context) => const AddEditMenuScreen()),
           );
         },
-        child: const Icon(Icons.add),
+        backgroundColor: Colors.teal.shade700,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
   Widget _buildMenuItemCard(BuildContext context, model_menu.Menu menu) {
+    final isAvailable = menu.isAvailable;
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: ClipRRect(
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
+                top: Radius.circular(16),
               ),
               child: menu.image != null && menu.image!.isNotEmpty
-                  ? Image.file(File(menu.image!), fit: BoxFit.cover)
+                  ? Image.file(
+                      File(menu.image!),
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Image.asset(
+                          'assets/placeholder.png',
+                          fit: BoxFit.cover,
+                        );
+                      },
+                    )
                   : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.all(12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   menu.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
-                Text('Rp ${_formatCurrency(menu.priceSell)}'),
-                const SizedBox(height: 4),
-                Text(menu.isAvailable ? 'Tersedia' : 'Tidak Tersedia'),
+                const SizedBox(height: 6),
+                Text(
+                  'Rp ${_formatCurrency(menu.priceSell)}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blueGrey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isAvailable
+                        ? Colors.green.shade50
+                        : Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    isAvailable ? 'Tersedia' : 'Tidak Tersedia',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isAvailable
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 Expanded(
                   child: IconButton(
-                    icon: const Icon(Icons.edit, color: Colors.blue),
+                    icon: Icon(Icons.edit, color: Colors.blue.shade700),
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -306,7 +435,7 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
                 ),
                 Expanded(
                   child: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                    icon: Icon(Icons.delete, color: Colors.red.shade700),
                     onPressed: () => _showDeleteConfirmation(context, menu),
                   ),
                 ),
@@ -320,55 +449,67 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
 
   Widget _buildMenuItemListTile(BuildContext context, model_menu.Menu menu) {
     final isAvailable = menu.isAvailable;
-    return Column(
-      children: [
-        ListTile(
-          leading: SizedBox(
-            width: 70,
-            height: 60,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: menu.image != null && menu.image!.isNotEmpty
-                  ? Image.file(File(menu.image!), fit: BoxFit.cover)
-                  : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
-            ),
-          ),
-          title: Text(
-            menu.name,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isAvailable ? Colors.black : Colors.grey,
-            ),
-          ),
-          subtitle: Text(
-            isAvailable
-                ? 'Rp ${_formatCurrency(menu.priceSell)}'
-                : 'Tidak Tersedia',
-            style: TextStyle(color: isAvailable ? Colors.black : Colors.red),
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.edit, color: Colors.blue),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => AddEditMenuScreen(menu: menu),
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _showDeleteConfirmation(context, menu),
-              ),
-            ],
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.only(bottom: 10),
+      child: ListTile(
+        leading: SizedBox(
+          width: 70,
+          height: 60,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: menu.image != null && menu.image!.isNotEmpty
+                ? Image.file(
+                    File(menu.image!),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        'assets/placeholder.png',
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  )
+                : Image.asset('assets/placeholder.png', fit: BoxFit.cover),
           ),
         ),
-        const Divider(thickness: 1, height: 1, color: Colors.grey),
-      ],
+        title: Text(
+          menu.name,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: isAvailable ? Colors.blueGrey.shade900 : Colors.grey,
+          ),
+        ),
+        subtitle: Text(
+          isAvailable
+              ? 'Rp ${_formatCurrency(menu.priceSell)}'
+              : 'Tidak Tersedia',
+          style: TextStyle(
+            color: isAvailable ? Colors.blueGrey.shade700 : Colors.red,
+            fontWeight: isAvailable ? FontWeight.normal : FontWeight.bold,
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: Icon(Icons.edit, color: Colors.blue.shade700),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddEditMenuScreen(menu: menu),
+                  ),
+                );
+              },
+            ),
+            IconButton(
+              icon: Icon(Icons.delete, color: Colors.red.shade700),
+              onPressed: () => _showDeleteConfirmation(context, menu),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

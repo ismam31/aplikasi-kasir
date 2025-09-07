@@ -10,6 +10,7 @@ import 'package:aplikasi_kasir_seafood/providers/setting_provider.dart';
 import 'package:aplikasi_kasir_seafood/services/order_service.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:aplikasi_kasir_seafood/models/setting.dart' as model_setting;
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class PrintReceiptPage extends StatefulWidget {
   final int orderId;
@@ -49,18 +50,14 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
 
   Future<void> _loadOrderData() async {
     try {
-      // ✅ Ambil order
       final fetchedOrder = await _orderService.getOrderById(widget.orderId);
-
-      // ✅ Ambil item-item
       final fetchedItems = await _orderService.getOrderItems(widget.orderId);
 
-      // ✅ Ambil customer (jika ada)
       model_customer.Customer? fetchedCustomer;
       if (fetchedOrder?.customerId != null) {
-        // ✅ Perbaikan: Ambil data pelanggan langsung dari OrderService
-        fetchedCustomer =
-            await _orderService.getCustomerById(fetchedOrder!.customerId!);
+        fetchedCustomer = await _orderService.getCustomerById(
+          fetchedOrder!.customerId!,
+        );
       }
 
       if (!mounted) return;
@@ -68,7 +65,7 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
         order = fetchedOrder;
         items = fetchedItems;
         customer = fetchedCustomer;
-        _isLoading = false; // ✅ Selesai loading
+        _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
@@ -102,19 +99,31 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
 
   void connect() async {
     if (selectedDevice == null) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Pilih printer dulu")));
+      CustomNotification.show(
+        context,
+        "Pilih printer dulu",
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
       return;
     }
     try {
       await bluetooth.connect(selectedDevice!);
       if (!mounted) return;
       setState(() => connected = true);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text("Berhasil konek")));
+      CustomNotification.show(
+        context,
+        "Berhasil Terkoneksi",
+        backgroundColor: Colors.green,
+        icon: Icons.check,
+      );
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("Gagal konek: $e")));
+      CustomNotification.show(
+        context,
+        "Gagal koneksi: $e",
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
     }
   }
 
@@ -127,68 +136,70 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
   void _printReceipt(model_setting.Setting settings) async {
     if (!connected || order == null) return;
 
-    // === CETAK HEADER ===
-    bluetooth.printCustom(settings.restoName ?? "Nama Restoran", 3, 1);
-    bluetooth.printCustom(settings.restoAddress ?? "Alamat Restoran", 1, 1);
-    bluetooth.printCustom("================================", 1, 1);
+    try {
+      // === CETAK HEADER ===
+      bluetooth.printCustom(settings.restoName ?? "Nama Restoran", 3, 1);
+      bluetooth.printCustom(settings.restoAddress ?? "Alamat Restoran", 1, 1);
+      bluetooth.printCustom("================================", 1, 1);
 
-    bluetooth.printLeftRight(
-      "Tanggal",
-      DateFormat('dd-MM-yyyy HH:mm').format(DateTime.parse(order!.orderTime)),
-      1,
-    );
-    bluetooth.printLeftRight("Pesanan #${order!.id}", "Kasir: Admin", 1);
-
-    // === CETAK CUSTOMER ===
-    bluetooth.printLeftRight(
-      "Pelanggan",
-      (customer != null && customer!.name.isNotEmpty) ? customer!.name : "-",
-      1,
-    );
-    bluetooth.printLeftRight(
-      "Meja",
-      (customer != null && customer!.tableNumber != null)
-          ? customer!.tableNumber.toString()
-          : "-",
-      1,
-    );
-
-    // === CETAK ITEM PESANAN ===
-    bluetooth.printCustom("================================", 1, 1);
-    for (var item in items) {
-      bluetooth.printCustom(item.menuName, 1, 0);
-      String qtyPrice = "x${item.quantity} Rp${_formatCurrency(item.price)}";
       bluetooth.printLeftRight(
-        qtyPrice,
-        "Rp ${_formatCurrency(item.price * item.quantity)}",
+        "Tanggal",
+        DateFormat('dd-MM-yyyy HH:mm').format(DateTime.parse(order!.orderTime)),
         1,
       );
+      bluetooth.printLeftRight("Pesanan #${order!.id}", "Kasir: Admin", 1);
+
+      // === CETAK CUSTOMER ===
+      final customerName = customer?.name ?? "Pelanggan Tidak Dikenal";
+      bluetooth.printLeftRight("Pelanggan", customerName, 1);
+      final tableNumber = customer?.tableNumber ?? "-";
+      bluetooth.printLeftRight("Meja", tableNumber, 1);
+
+      // === CETAK ITEM PESANAN ===
+      bluetooth.printCustom("================================", 1, 1);
+      for (var item in items) {
+        bluetooth.printCustom(item.menuName, 1, 0);
+        String qtyPrice =
+            "x${item.quantity.toStringAsFixed(1)} Rp${_formatCurrency(item.price)}";
+        bluetooth.printLeftRight(
+          qtyPrice,
+          "Rp ${_formatCurrency(item.price * item.quantity)}",
+          1,
+        );
+      }
+
+      // === CETAK TOTAL ===
+      bluetooth.printCustom("================================", 1, 1);
+      bluetooth.printLeftRight(
+        "Total",
+        'Rp ${_formatCurrency(order!.totalAmount!)}',
+        1,
+      );
+      bluetooth.printLeftRight(
+        "Bayar",
+        'Rp ${_formatCurrency(widget.cashGiven)}',
+        1,
+      );
+      bluetooth.printLeftRight(
+        "Kembali",
+        'Rp ${_formatCurrency(widget.changeAmount)}',
+        1,
+      );
+
+      // === FOOTER ===
+      bluetooth.printCustom("================================", 1, 1);
+      bluetooth.printCustom(settings.receiptMessage ?? "Terima kasih", 1, 1);
+
+      bluetooth.printNewLine();
+      bluetooth.printNewLine();
+    } catch (e) {
+      CustomNotification.show(
+        context,
+        "Gagal print: $e",
+        backgroundColor: Colors.red,
+        icon: Icons.error_outline,
+      );
     }
-
-    // === CETAK TOTAL ===
-    bluetooth.printCustom("================================", 1, 1);
-    bluetooth.printLeftRight(
-      "Total",
-      'Rp ${_formatCurrency(order!.totalAmount!)}',
-      1,
-    );
-    bluetooth.printLeftRight(
-      "Bayar",
-      'Rp ${_formatCurrency(widget.cashGiven)}',
-      1,
-    );
-    bluetooth.printLeftRight(
-      "Kembali",
-      'Rp ${_formatCurrency(widget.changeAmount)}',
-      1,
-    );
-
-    // === FOOTER ===
-    bluetooth.printCustom("================================", 1, 1);
-    bluetooth.printCustom(settings.receiptMessage ?? "Terima kasih", 1, 1);
-
-    bluetooth.printNewLine();
-    bluetooth.printNewLine();
   }
 
   @override
@@ -202,54 +213,129 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
           }
 
           if (order == null) {
-            return const Center(
-              child: Text("Data pesanan tidak ditemukan."),
-            );
+            return const Center(child: Text("Data pesanan tidak ditemukan."));
           }
-
-          return Column(
-            children: [
-              Expanded(
-                child: ListView(
-                  children: devices
-                      .map(
-                        (device) => ListTile(
-                          title: Text(device.name ?? "Unknown"),
-                          subtitle: Text(device.address ?? ""),
-                          trailing: selectedDevice == device
-                              ? const Icon(Icons.check, color: Colors.green)
-                              : null,
-                          onTap: () => setState(() => selectedDevice = device),
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Perangkat Bluetooth',
+                  style: Theme.of(context).textTheme.titleLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: devices.isEmpty
+                      ? const Center(
+                          child: Text("Tidak ada perangkat terhubung"),
+                        )
+                      : ListView.builder(
+                          itemCount: devices.length,
+                          itemBuilder: (context, index) {
+                            final device = devices[index];
+                            return Card(
+                              elevation: selectedDevice == device ? 4 : 1,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: selectedDevice == device
+                                    ? const BorderSide(
+                                        color: Colors.blue,
+                                        width: 2,
+                                      )
+                                    : BorderSide.none,
+                              ),
+                              child: ListTile(
+                                leading: FaIcon(
+                                  FontAwesomeIcons.bluetooth,
+                                  color: selectedDevice == device
+                                      ? Colors.blue
+                                      : Colors.blueGrey,
+                                ),
+                                title: Text(device.name ?? "Unknown"),
+                                subtitle: Text(device.address ?? "-"),
+                                onTap: () => setState(() {
+                                  selectedDevice = device;
+                                }),
+                                trailing: selectedDevice == device
+                                    ? const Icon(
+                                        Icons.check_circle,
+                                        color: Colors.green,
+                                      )
+                                    : null,
+                              ),
+                            );
+                          },
                         ),
-                      )
-                      .toList(),
                 ),
-              ),
-              if (connected)
-                const Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text(
+                const SizedBox(height: 20),
+                if (connected)
+                  const Text(
                     "Printer terhubung",
-                    style: TextStyle(color: Colors.green),
+                    style: TextStyle(
+                      color: Colors.green,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: connected ? disconnect : connect,
+                        icon: FaIcon(
+                          connected
+                              ? FontAwesomeIcons.solidCircleXmark
+                              : FontAwesomeIcons.solidCircleCheck,
+                          size: 20,
+                        ),
+                        label: Text(
+                          connected ? 'Disconnect' : 'Connect',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: connected
+                              ? Colors.red.shade700
+                              : Colors.blue.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed:
+                            connected &&
+                                settingProvider.settings != null &&
+                                order != null
+                            ? () => _printReceipt(settingProvider.settings!)
+                            : null,
+                        icon: const FaIcon(FontAwesomeIcons.print, size: 20),
+                        label: const Text(
+                          'Cetak Struk',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal.shade700,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  ElevatedButton(onPressed: connect, child: const Text("Connect")),
-                  ElevatedButton(onPressed: disconnect, child: const Text("Disconnect")),
-                  ElevatedButton(
-                    onPressed: connected &&
-                            settingProvider.settings != null &&
-                            order != null
-                        ? () => _printReceipt(settingProvider.settings!)
-                        : null,
-                    child: const Text("Cetak"),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-            ],
+              ],
+            ),
           );
         },
       ),

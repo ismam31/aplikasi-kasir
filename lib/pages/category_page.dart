@@ -18,30 +18,59 @@ class _CategoryPageState extends State<CategoryPage> {
   @override
   void initState() {
     super.initState();
-    // Muat data kategori saat halaman pertama kali dibuka
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<CategoryProvider>(context, listen: false).loadCategories();
     });
   }
 
-  // Dialog untuk menambah kategori baru
+  // Metode untuk menangani reordering
+  void _onReorder(
+      int oldIndex, int newIndex, List<model_category.Category> categories) {
+    setState(() {
+      if (newIndex > oldIndex) {
+        newIndex -= 1;
+      }
+      final item = categories.removeAt(oldIndex);
+      categories.insert(newIndex, item);
+    });
+    // Panggil provider untuk menyimpan urutan baru
+    Provider.of<CategoryProvider>(context, listen: false).updateOrder(
+      categories,
+    );
+  }
+
+  // Dialog untuk menambah kategori baru dengan desain modern
   void _showAddCategoryDialog(BuildContext context) {
     TextEditingController controller = TextEditingController();
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Tambah Kategori Baru'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Tambah Kategori Baru',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: TextField(
             controller: controller,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Nama Kategori',
-              border: OutlineInputBorder(),
+              hintText: 'Misal: Ikan, Udang, dsb.',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF00796B)),
+              ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blueGrey,
+              ),
               child: const Text('Batal'),
             ),
             ElevatedButton(
@@ -52,8 +81,21 @@ class _CategoryPageState extends State<CategoryPage> {
                     listen: false,
                   ).addCategory(controller.text);
                   Navigator.pop(context);
+                  CustomNotification.show(
+                    context,
+                    'Kategori berhasil ditambahkan',
+                    backgroundColor: Colors.green,
+                    icon: Icons.check_circle,
+                  );
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00796B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Tambah'),
             ),
           ],
@@ -62,7 +104,7 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
-  // Dialog untuk mengedit kategori
+  // Dialog untuk mengedit kategori dengan desain modern
   void _showEditCategoryDialog(
     BuildContext context,
     model_category.Category category,
@@ -74,17 +116,30 @@ class _CategoryPageState extends State<CategoryPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Edit Kategori'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Edit Kategori',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
           content: TextField(
             controller: controller,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Nama Kategori',
-              border: OutlineInputBorder(),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF00796B)),
+              ),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blueGrey,
+              ),
               child: const Text('Batal'),
             ),
             ElevatedButton(
@@ -96,8 +151,21 @@ class _CategoryPageState extends State<CategoryPage> {
                     listen: false,
                   ).updateCategory(category);
                   Navigator.pop(context);
+                  CustomNotification.show(
+                    context,
+                    'Kategori berhasil diperbarui',
+                    backgroundColor: Colors.green,
+                    icon: Icons.check_circle,
+                  );
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00796B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Simpan'),
             ),
           ],
@@ -106,7 +174,7 @@ class _CategoryPageState extends State<CategoryPage> {
     );
   }
 
-  // Dialog konfirmasi untuk menghapus kategori
+  // Dialog konfirmasi untuk menghapus kategori dengan desain modern
   void _showDeleteConfirmation(
     BuildContext context,
     model_category.Category category,
@@ -115,13 +183,21 @@ class _CategoryPageState extends State<CategoryPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Hapus Kategori'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Hapus Kategori',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+          ),
           content: Text(
             'Apakah Anda yakin ingin menghapus kategori "${category.name}"?',
+            style: const TextStyle(fontSize: 16),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blueGrey,
+              ),
               child: const Text('Batal'),
             ),
             ElevatedButton(
@@ -135,9 +211,16 @@ class _CategoryPageState extends State<CategoryPage> {
                   context,
                   'Kategori berhasil dihapus',
                   backgroundColor: Colors.green,
+                  icon: Icons.check_circle,
                 );
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: const Text('Hapus'),
             ),
           ],
@@ -150,7 +233,9 @@ class _CategoryPageState extends State<CategoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Manajemen Kategori'),
-      drawer: const CustomDrawer(),
+      drawer: const CustomDrawer(
+        currentPage: 'Kategori',
+      ),
       body: Consumer<CategoryProvider>(
         builder: (context, categoryProvider, child) {
           if (categoryProvider.isLoading) {
@@ -158,58 +243,121 @@ class _CategoryPageState extends State<CategoryPage> {
           }
 
           if (categoryProvider.categories.isEmpty) {
-            return const Center(
-              child: Text('Belum ada kategori. Tambahkan sekarang!'),
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  FaIcon(
+                    FontAwesomeIcons.tags,
+                    size: 80,
+                    color: Colors.blueGrey.withOpacity(0.3),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Belum ada kategori.\nTambahkan sekarang!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 18,
+                      color: Colors.blueGrey.withOpacity(0.6),
+                    ),
+                  ),
+                ],
+              ),
             );
           }
-
-          return ListView.builder(
+          
+          final categories = categoryProvider.categories;
+          
+          return ReorderableListView(
             padding: const EdgeInsets.all(16),
-            itemCount: categoryProvider.categories.length,
-            itemBuilder: (context, index) {
-              final category = categoryProvider.categories[index];
-              return Card(
+            onReorder: (oldIndex, newIndex) =>
+                _onReorder(oldIndex, newIndex, categories),
+            children: categories.map((category) {
+              return Container(
+                key: ValueKey(category.id),
                 margin: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
+                    horizontal: 20,
                     vertical: 12,
                   ),
                   leading: const FaIcon(
                     FontAwesomeIcons.tag,
-                    color: Colors.blueGrey,
+                    color: Color(0xFF00796B),
+                    size: 24,
                   ),
                   title: Text(
                     category.name!,
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
+                      color: Colors.blueGrey,
                     ),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
+                      _buildIconButton(
+                        icon: Icons.edit,
+                        color: Colors.blue.shade700,
                         onPressed: () =>
                             _showEditCategoryDialog(context, category),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
+                      const SizedBox(width: 8),
+                      _buildIconButton(
+                        icon: Icons.delete,
+                        color: Colors.red.shade700,
                         onPressed: () =>
                             _showDeleteConfirmation(context, category),
+                      ),
+                      const SizedBox(width: 8),
+                      const FaIcon(
+                        FontAwesomeIcons.gripLines,
+                        color: Colors.blueGrey,
                       ),
                     ],
                   ),
                 ),
               );
-            },
+            }).toList(),
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddCategoryDialog(context),
+        backgroundColor: const Color(0xFF00796B),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  // Widget pembantu untuk membuat ikon tombol dengan gaya yang konsisten
+  Widget _buildIconButton({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        shape: BoxShape.circle,
+      ),
+      child: IconButton(
+        icon: Icon(icon, color: color),
+        onPressed: onPressed,
       ),
     );
   }

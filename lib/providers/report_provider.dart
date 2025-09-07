@@ -21,7 +21,10 @@ class ReportProvider with ChangeNotifier {
   List<Map<String, dynamic>> get hourlyData => _hourlyData;
 
   double get totalRevenue {
-    return _completedOrders.fold(0.0, (sum, order) => sum + (order.totalAmount ?? 0.0));
+    return _completedOrders.fold(
+      0.0,
+      (sum, order) => sum + (order.totalAmount ?? 0.0),
+    );
   }
 
   double get totalExpenses {
@@ -43,15 +46,17 @@ class ReportProvider with ChangeNotifier {
 
     try {
       final allOrders = await _orderService.getOrders();
-      
+
       // Filter pesanan yang sudah selesai
-      var filteredOrders = allOrders.where((order) => order.orderStatus == 'Selesai').toList();
+      var filteredOrders = allOrders
+          .where((order) => order.orderStatus == 'Selesai')
+          .toList();
 
       // Filter berdasarkan tanggal jika disediakan
       if (date != null) {
         final startOfDay = DateTime(date.year, date.month, date.day);
         final endOfDay = startOfDay.add(const Duration(days: 1));
-        
+
         filteredOrders = filteredOrders.where((order) {
           final orderTime = DateTime.parse(order.orderTime);
           return orderTime.isAfter(startOfDay) && orderTime.isBefore(endOfDay);
@@ -61,16 +66,15 @@ class ReportProvider with ChangeNotifier {
       _completedOrders = filteredOrders;
       _allExpenses = await _expenseService.getExpenses();
       _totalOrders = _completedOrders.length;
-      
-      _calculateHourlyData();
 
+      _calculateHourlyData();
     } catch (e) {
       // Handle error jika gagal memuat data
       if (kDebugMode) {
         print('Error loading reports: $e');
       }
     }
-    
+
     _isLoading = false;
     notifyListeners();
   }
@@ -84,16 +88,49 @@ class ReportProvider with ChangeNotifier {
     for (var order in _completedOrders) {
       final hour = DateTime.parse(order.orderTime).hour;
       final totalAmount = order.totalAmount ?? 0.0;
-      tempHourlyData.update(hour, (value) => value + totalAmount,
-          ifAbsent: () => totalAmount);
+      tempHourlyData.update(
+        hour,
+        (value) => value + totalAmount,
+        ifAbsent: () => totalAmount,
+      );
     }
 
-    _hourlyData = tempHourlyData.entries.map((e) => {
-      'hour': e.key.toDouble(), 
-      'value': e.value
-    }).toList();
-    
+    _hourlyData = tempHourlyData.entries
+        .map((e) => {'hour': e.key.toDouble(), 'value': e.value})
+        .toList();
+
     // Pastikan data terurut berdasarkan jam
     _hourlyData.sort((a, b) => a['hour']!.compareTo(b['hour']!));
+  }
+
+  Future<void> loadReportsByRange(DateTime startDate, DateTime endDate) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final allOrders = await _orderService.getOrders();
+      var filteredOrders = allOrders
+          .where((order) => order.orderStatus == 'Selesai')
+          .toList();
+
+      // Filter berdasarkan rentang tanggal
+      filteredOrders = filteredOrders.where((order) {
+        final orderTime = DateTime.parse(order.orderTime);
+        return orderTime.isAfter(startDate) && orderTime.isBefore(endDate);
+      }).toList();
+
+      _completedOrders = filteredOrders;
+      _allExpenses = await _expenseService.getExpenses();
+      _totalOrders = _completedOrders.length;
+
+      _calculateHourlyData();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading reports by range: $e');
+      }
+    }
+
+    _isLoading = false;
+    notifyListeners();
   }
 }
