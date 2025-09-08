@@ -192,6 +192,13 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
 
       bluetooth.printNewLine();
       bluetooth.printNewLine();
+
+      CustomNotification.show(
+        context,
+        "Perintah cetak berhasil dikirim",
+        backgroundColor: Colors.green,
+        icon: Icons.check,
+      );
     } catch (e) {
       CustomNotification.show(
         context,
@@ -215,6 +222,9 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
           if (order == null) {
             return const Center(child: Text("Data pesanan tidak ditemukan."));
           }
+
+          final setting = settingProvider.settings!;
+
           return Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -315,7 +325,7 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
                             connected &&
                                 settingProvider.settings != null &&
                                 order != null
-                            ? () => _printReceipt(settingProvider.settings!)
+                            ? () => _printReceipt(setting)
                             : null,
                         icon: const FaIcon(FontAwesomeIcons.print, size: 20),
                         label: const Text(
