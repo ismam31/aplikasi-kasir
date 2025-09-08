@@ -19,13 +19,11 @@ class _ReportPageState extends State<ReportPage> {
   @override
   void initState() {
     super.initState();
-    // Default: load laporan hari ini
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadReportsByDateFilter('Today');
     });
   }
 
-  // Metode untuk memuat ulang laporan berdasarkan filter tanggal
   Future<void> _loadReportsByDateFilter(String filter) async {
     DateTime now = DateTime.now();
     DateTime? startDate;
@@ -49,7 +47,7 @@ class _ReportPageState extends State<ReportPage> {
         endDate = startDate.add(const Duration(days: 1));
         break;
       case 'This Week':
-        int weekday = now.weekday; // Senin = 1, Minggu = 7
+        int weekday = now.weekday;
         startDate = now.subtract(Duration(days: weekday - 1));
         endDate = startDate.add(const Duration(days: 7));
         break;
@@ -71,12 +69,40 @@ class _ReportPageState extends State<ReportPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Laporan Keuangan'),
-      drawer: const CustomDrawer(currentPage: 'Laporan',),
+      drawer: const CustomDrawer(currentPage: 'Laporan'),
       body: Consumer<ReportProvider>(
         builder: (context, reportProvider, child) {
           if (reportProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
+
+          // Metric cards dalam 2 kolom
+          final metrics = [
+            {
+              'title': 'Jml Transaksi',
+              'value': reportProvider.totalOrders,
+              'color': Colors.green.shade800,
+              'icon': Icons.receipt_long,
+            },
+            {
+              'title': 'Keuntungan',
+              'value': reportProvider.netProfit,
+              'color': Colors.blue.shade800,
+              'icon': Icons.trending_up,
+            },
+            {
+              'title': 'Pendapatan',
+              'value': reportProvider.totalRevenue,
+              'color': Colors.green,
+              'icon': Icons.monetization_on,
+            },
+            {
+              'title': 'Pengeluaran',
+              'value': reportProvider.totalExpenses,
+              'color': Colors.red.shade800,
+              'icon': Icons.money_off,
+            },
+          ];
 
           return RefreshIndicator(
             onRefresh: () => _loadReportsByDateFilter(_selectedDateFilter),
@@ -86,7 +112,7 @@ class _ReportPageState extends State<ReportPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Bagian Filter Tanggal
+                  // Filter Tanggal
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -127,29 +153,28 @@ class _ReportPageState extends State<ReportPage> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Bagian Kartu Metrik
-                  _buildMetricCard(
-                    context,
-                    title: 'Jml Transaksi',
-                    value: reportProvider.totalOrders,
-                    color: Colors.green.shade800,
-                    icon: Icons.receipt_long,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildMetricCard(
-                    context,
-                    title: 'Keuntungan',
-                    value: reportProvider.netProfit,
-                    color: Colors.blue.shade800,
-                    icon: Icons.trending_up,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildMetricCard(
-                    context,
-                    title: 'Pendapatan',
-                    value: reportProvider.totalRevenue,
-                    color: Colors.green,
-                    icon: Icons.monetization_on,
+                  // Grid Metric Cards 2 kolom
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 1.5,
+                        ),
+                    itemCount: metrics.length,
+                    itemBuilder: (context, index) {
+                      final metric = metrics[index];
+                      return _buildMetricCard(
+                        context,
+                        title: metric['title'] as String,
+                        value: metric['value'] as num,
+                        color: metric['color'] as Color,
+                        icon: metric['icon'] as IconData,
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 24),
@@ -158,15 +183,6 @@ class _ReportPageState extends State<ReportPage> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   _buildChartCard(context, reportProvider.hourlyData),
-
-                  const SizedBox(height: 24),
-                  _buildMetricCard(
-                    context,
-                    title: 'Sisa modal - Metode FIFO',
-                    value: 0.0, // Ganti dengan data sisa modal yang sebenarnya
-                    color: Colors.grey.shade600,
-                    icon: Icons.inventory_2,
-                  ),
                 ],
               ),
             ),
@@ -189,7 +205,7 @@ class _ReportPageState extends State<ReportPage> {
         : 'Rp ${formatter.format(value)}';
 
     return Container(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -204,28 +220,22 @@ class _ReportPageState extends State<ReportPage> {
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Icon(icon, size: 24, color: color),
-                  const SizedBox(width: 8),
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: color,
-                    ),
+              Icon(icon, size: 24, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: color,
                   ),
-                ],
-              ),
-              const Text(
-                '+0% vs kemarin',
-                style: TextStyle(fontSize: 12, color: Colors.green),
+                ),
               ),
             ],
           ),
@@ -233,7 +243,7 @@ class _ReportPageState extends State<ReportPage> {
           Text(
             formattedValue,
             style: TextStyle(
-              fontSize: 32,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: color,
             ),

@@ -79,11 +79,43 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
       MaterialPageRoute(
         builder: (context) => ReceiptPreviewPage(
           orderId: order.id!,
-          // ✅ Perbaikan: Mengambil data paidAmount dan changeAmount dari objek order
           cashGiven: order.paidAmount ?? 0.0,
           changeAmount: order.changeAmount ?? 0.0,
         ),
       ),
+    );
+  }
+  
+  // ✅ Fungsi untuk menampilkan dialog konfirmasi hapus semua
+  void _showDeleteAllConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Hapus Semua Riwayat Pesanan?'),
+          content: const Text(
+            'Apakah Anda yakin ingin menghapus SEMUA riwayat pesanan? Aksi ini tidak dapat dibatalkan.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Provider.of<OrderListProvider>(context, listen: false)
+                    .deleteAllOrders();
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Hapus Semua'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -109,10 +141,20 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Filter berdasarkan Tanggal:',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
+                    // ✅ Tombol hapus semua
+                    if (orderHistory.isNotEmpty)
+                      OutlinedButton(
+                        onPressed: () => _showDeleteAllConfirmation(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                        ),
+                        child: const Text('Hapus Semua'),
+                      ),
+                    // Jika tidak ada riwayat, tampilkan container kosong agar layout tetap
+                    if (orderHistory.isEmpty)
+                      const SizedBox.shrink(),
+                      
                     DropdownButton<String>(
                       value: _selectedDateFilter,
                       items: const [

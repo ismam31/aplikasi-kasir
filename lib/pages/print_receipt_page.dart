@@ -11,6 +11,8 @@ import 'package:aplikasi_kasir_seafood/services/order_service.dart';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import 'package:aplikasi_kasir_seafood/models/setting.dart' as model_setting;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 class PrintReceiptPage extends StatefulWidget {
   final int orderId;
@@ -137,61 +139,123 @@ class _PrintReceiptPageState extends State<PrintReceiptPage> {
     if (!connected || order == null) return;
 
     try {
-      // === CETAK HEADER ===
-      bluetooth.printCustom(settings.restoName ?? "Nama Restoran", 3, 1);
-      bluetooth.printCustom(settings.restoAddress ?? "Alamat Restoran", 1, 1);
-      bluetooth.printCustom("================================", 1, 1);
+      // Reset printer
+      await bluetooth.writeBytes(Uint8List.fromList([27, 64])); // ESC @
 
-      bluetooth.printLeftRight(
-        "Tanggal",
-        DateFormat('dd-MM-yyyy HH:mm').format(DateTime.parse(order!.orderTime)),
-        1,
+      // Center align
+      await bluetooth.writeBytes(Uint8List.fromList([27, 97, 1])); // ESC a 1
+
+      // Double height text
+      await bluetooth.writeBytes(Uint8List.fromList([27, 33, 16])); // ESC ! 16
+
+      // Normal style lagi
+      await bluetooth.writeBytes(Uint8List.fromList([27, 33, 0])); // ESC ! 0
+
+      String formatLine(String left, String right, {int width = 32}) {
+        // width = jumlah karakter per baris (cek manual di printermu, biasanya 32)
+        int space = width - left.length - right.length;
+        if (space < 0) space = 1;
+        return left + ' ' * space + right;
+      }
+
+      // === HEADER ===
+      await bluetooth.writeBytes(
+        Uint8List.fromList([27, 97, 1]),
+      ); // ESC a 1 (center)
+      await bluetooth.writeBytes(
+        Uint8List.fromList([27, 33, 16]),
+      ); // ESC ! 16 (double height, normal font)
+      await bluetooth.writeBytes(
+        utf8.encode("${settings.restoName ?? "Nama Restoran"}\n"),
       );
-      bluetooth.printLeftRight("Pesanan #${order!.id}", "Kasir: Admin", 1);
+      await bluetooth.writeBytes(
+        Uint8List.fromList([27, 33, 0]),
+      ); // Balik normal
+      await bluetooth.writeBytes(
+        utf8.encode("${settings.restoAddress ?? "Alamat Restoran"}\n"),
+      );
+      await bluetooth.writeBytes(
+        utf8.encode(
+          "${settings.restoPhone ?? "Nomor Telepon Restoran"}/${settings.restoPhone2 ?? "Nomor Telepon Restoran"}\n",
+        ),
+      );
+      await bluetooth.writeBytes(
+        utf8.encode("================================\n"),
+      );
 
-      // === CETAK CUSTOMER ===
+      // === INFO ORDER ===
+      await bluetooth.writeBytes(Uint8List.fromList([27, 97, 0]));
+      // Tanggal (kiri) - jam (kanan)
+      await bluetooth.writeBytes(
+        utf8.encode(
+          "${formatLine(DateFormat('dd-MM-yyyy').format(DateTime.parse(order!.orderTime)), "Admin")}\n",
+        ),
+      );
       final customerName = customer?.name ?? "Pelanggan Tidak Dikenal";
-      bluetooth.printLeftRight("Pelanggan", customerName, 1);
-      final tableNumber = customer?.tableNumber ?? "-";
-      bluetooth.printLeftRight("Meja", tableNumber, 1);
+      // Pesanan (kiri) - ID (kanan)
+      await bluetooth.writeBytes(
+        utf8.encode(
+          formatLine(
+            DateFormat('HH:mm:ss').format(DateTime.parse(order!.orderTime)),
+            customerName,
+          ),
+        ),
+      );
 
-      // === CETAK ITEM PESANAN ===
-      bluetooth.printCustom("================================", 1, 1);
+      final tableNumber = customer?.tableNumber ?? "-";
+      final guestCount = customer?.guestCount ?? 0;
+      await bluetooth.writeBytes(
+        utf8.encode(
+          formatLine(
+            "No. #${order!.id}",
+            "Meja $tableNumber/$guestCount orang",
+          ),
+        ),
+      );
+
+      await bluetooth.writeBytes(
+        utf8.encode("================================\n"),
+      );
+
+      // === ITEM LIST ===
       for (var item in items) {
-        bluetooth.printCustom(item.menuName, 1, 0);
+        await bluetooth.writeBytes(utf8.encode("${item.menuName}\n"));
         String qtyPrice =
-            "x${item.quantity.toStringAsFixed(1)} Rp${_formatCurrency(item.price)}";
-        bluetooth.printLeftRight(
-          qtyPrice,
-          "Rp ${_formatCurrency(item.price * item.quantity)}",
-          1,
+            " ${item.quantity.toStringAsFixed(1)} x Rp${_formatCurrency(item.price)}";
+        String totalLine = "Rp ${_formatCurrency(item.price * item.quantity)}";
+        await bluetooth.writeBytes(
+          utf8.encode("${formatLine(qtyPrice, totalLine)}\n"),
         );
       }
 
-      // === CETAK TOTAL ===
-      bluetooth.printCustom("================================", 1, 1);
-      bluetooth.printLeftRight(
-        "Total",
-        'Rp ${_formatCurrency(order!.totalAmount!)}',
-        1,
+      // === TOTAL ===
+      await bluetooth.writeBytes(
+        utf8.encode("================================\n"),
       );
-      bluetooth.printLeftRight(
-        "Bayar",
-        'Rp ${_formatCurrency(widget.cashGiven)}',
-        1,
+      await bluetooth.writeBytes(
+        utf8.encode(
+          "${formatLine("Total    :", "Rp ${_formatCurrency(order!.totalAmount!)}")}\n",
+        ),
       );
-      bluetooth.printLeftRight(
-        "Kembali",
-        'Rp ${_formatCurrency(widget.changeAmount)}',
-        1,
+      await bluetooth.writeBytes(
+        utf8.encode(
+          "${formatLine("Bayar    :", "Rp ${_formatCurrency(widget.cashGiven)}")}\n",
+        ),
+      );
+      await bluetooth.writeBytes(
+        utf8.encode(
+          "${formatLine("Kembali  :", "Rp ${_formatCurrency(widget.changeAmount)}")}\n",
+        ),
+      );
+      await bluetooth.writeBytes(
+        utf8.encode("================================\n"),
       );
 
       // === FOOTER ===
-      bluetooth.printCustom("================================", 1, 1);
-      bluetooth.printCustom(settings.receiptMessage ?? "Terima kasih", 1, 1);
-
-      bluetooth.printNewLine();
-      bluetooth.printNewLine();
+      await bluetooth.writeBytes(Uint8List.fromList([27, 97, 1])); // Center
+      await bluetooth.writeBytes(
+        utf8.encode("${settings.receiptMessage ?? "Terima kasih"}\n\n\n"),
+      );
 
       CustomNotification.show(
         context,

@@ -4,7 +4,7 @@ import 'package:aplikasi_kasir_seafood/services/expense_service.dart';
 
 class ExpenseProvider with ChangeNotifier {
   final ExpenseService _expenseService = ExpenseService();
-  
+
   List<model_expense.Expense> _expenses = [];
   bool _isLoading = false;
 
@@ -18,13 +18,22 @@ class ExpenseProvider with ChangeNotifier {
   Future<void> loadExpenses() async {
     _isLoading = true;
     notifyListeners();
-    _expenses = await _expenseService.getExpenses();
+    try {
+      _expenses = await _expenseService.getExpenses();
+    } catch (e) {
+      debugPrint('Error loading expenses: $e');
+    }
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<void> addExpense(model_expense.Expense expense) async {
+  Future<void> insertExpense(model_expense.Expense expense) async {
     await _expenseService.insertExpense(expense);
+    await loadExpenses();
+  }
+
+  Future<void> deleteExpense(int id) async {
+    await _expenseService.deleteExpense(id);
     await loadExpenses();
   }
 }

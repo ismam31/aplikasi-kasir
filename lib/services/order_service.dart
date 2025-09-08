@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
-import 'package:aplikasi_kasir_seafood/models/order_item.dart' as model_order_item;
+import 'package:aplikasi_kasir_seafood/models/order_item.dart'
+    as model_order_item;
 import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
 import 'package:aplikasi_kasir_seafood/services/database_helper.dart';
 
@@ -86,10 +87,7 @@ class OrderService {
         orderBy: 'order_time DESC',
       );
     } else {
-      maps = await db.query(
-        'orders',
-        orderBy: 'order_time DESC',
-      );
+      maps = await db.query('orders', orderBy: 'order_time DESC');
     }
 
     return List.generate(maps.length, (i) {
@@ -177,6 +175,21 @@ class OrderService {
         whereArgs: [orderId],
       );
       await txn.delete('orders', where: 'id = ?', whereArgs: [orderId]);
+    });
+  }
+
+  // ✅ Metode baru untuk menghapus semua pesanan dan item-itemnya
+  Future<void> deleteAllOrders() async {
+    final db = await _dbHelper.database;
+    await db.transaction((txn) async {
+      await txn.delete('order_items');
+      await txn.delete('orders');
+      // ✅ Perintah SQL untuk mereset auto-increment
+      await txn.delete(
+        'sqlite_sequence',
+        where: 'name = ?',
+        whereArgs: ['orders'],
+      );
     });
   }
 }

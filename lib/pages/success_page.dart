@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:aplikasi_kasir_seafood/pages/dashboard_page.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
+import 'package:aplikasi_kasir_seafood/widgets/custom_drawer.dart';
 import 'package:aplikasi_kasir_seafood/pages/print_receipt_page.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:intl/intl.dart';
@@ -31,6 +32,7 @@ class _SuccessPageState extends State<SuccessPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: "Pembayaran Berhasil"),
+      drawer: const CustomDrawer(currentPage: 'Pemesanan'),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -97,7 +99,8 @@ class _SuccessPageState extends State<SuccessPage> {
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
-                          builder: (context) => const DashboardPage()),
+                        builder: (context) => const DashboardPage(),
+                      ),
                       (route) => false,
                     );
                   },

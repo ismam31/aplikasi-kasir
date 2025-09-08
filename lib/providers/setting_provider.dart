@@ -19,6 +19,17 @@ class SettingProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     _settings = await _settingService.getSettings();
+
+    // Normalisasi biar gak null/empty string
+    if (_settings != null) {
+      if (_settings!.restoPhone == null || _settings!.restoPhone!.isEmpty) {
+        _settings = _settings!.copyWith(restoPhone: "Nomor Telepon Restoran");
+      }
+      if (_settings!.restoPhone2 == null || _settings!.restoPhone2!.isEmpty) {
+        _settings = _settings!.copyWith(restoPhone2: "");
+      }
+    }
+
     _isLoading = false;
     notifyListeners();
   }

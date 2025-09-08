@@ -19,6 +19,8 @@ import "package:blue_thermal_printer/blue_thermal_printer.dart";
 import 'package:aplikasi_kasir_seafood/models/setting.dart' as model_setting;
 import 'package:intl/intl.dart';
 import 'package:aplikasi_kasir_seafood/services/order_service.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 class OrderDetailsPage extends StatefulWidget {
   final model_order.Order order;
@@ -228,65 +230,121 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     }
 
     try {
-      // === CETAK HEADER ===
-      printer.printCustom(settings.restoName ?? "Nama Restoran", 2, 1);
-      printer.printCustom(settings.restoAddress ?? "Alamat Restoran", 1, 1);
-      printer.printCustom("================================", 1, 1);
+      // Reset printer
+      await printer.writeBytes(Uint8List.fromList([27, 64])); // ESC @
 
-      printer.printLeftRight(
-        "Tanggal:",
-        DateFormat('dd-MM-yyyy HH:mm').format(DateTime.parse(order!.orderTime)),
-        1,
+      // Center align
+      await printer.writeBytes(Uint8List.fromList([27, 97, 1])); // ESC a 1
+
+      // Double height text
+      await printer.writeBytes(Uint8List.fromList([27, 33, 16])); // ESC ! 16
+
+      // Normal style lagi
+      await printer.writeBytes(Uint8List.fromList([27, 33, 0])); // ESC ! 0
+
+      // helper function
+      String formatLine(String left, String right, {int width = 32}) {
+        int space = width - left.length - right.length;
+        if (space < 0) space = 1;
+        return left + ' ' * space + right;
+      }
+
+      // ==== HEADER ====
+      await printer.writeBytes(
+        Uint8List.fromList([27, 97, 1]),
+      ); // ESC a 1 (center)
+      await printer.writeBytes(
+        Uint8List.fromList([27, 33, 16]),
+      ); // ESC ! 16 (double height, normal font)
+      await printer.writeBytes(
+        utf8.encode("${settings.restoName ?? "Nama Restoran"}\n"),
       );
-      printer.printLeftRight("Pesanan #${order!.id}", "Kasir: Admin", 1);
+      await printer.writeBytes(Uint8List.fromList([27, 33, 0])); // Balik normal
+      await printer.writeBytes(
+        utf8.encode("${settings.restoAddress ?? "Alamat Restoran"}\n"),
+      );
+      await printer.writeBytes(
+        utf8.encode(
+          "${settings.restoPhone ?? "Nomor Telepon Restoran"}/${settings.restoPhone2 ?? "Nomor Telepon Restoran"}\n",
+        ),
+      );
+      await printer.writeBytes(
+        utf8.encode("================================\n"),
+      );
 
+      // ==== INFO ORDER ====
+      await printer.writeBytes(Uint8List.fromList([27, 97, 0]));
+      // Tanggal (kiri) - jam (kanan)
+      await printer.writeBytes(
+        utf8.encode(
+          "${formatLine(DateFormat('dd-MM-yyyy').format(DateTime.parse(order!.orderTime)), "Admin")}\n",
+        ),
+      );
       final customerName = customer?.name ?? "Pelanggan Tidak Dikenal";
-      printer.printLeftRight("Pelanggan", customerName, 1);
+      // Pesanan (kiri) - ID (kanan)
+      await printer.writeBytes(
+        utf8.encode(
+          formatLine(
+            DateFormat('HH:mm:ss').format(DateTime.parse(order!.orderTime)),
+            customerName,
+          ),
+        ),
+      );
 
       final tableNumber = customer?.tableNumber ?? "-";
-      printer.printLeftRight("Meja", tableNumber, 1);
+      final guestCount = customer?.guestCount ?? 0;
+      await printer.writeBytes(
+        utf8.encode(
+          formatLine(
+            "No. #${order!.id}",
+            "Meja $tableNumber/$guestCount orang",
+          ),
+        ),
+      );
+      await printer.writeBytes(
+        utf8.encode("================================\n"),
+      );
 
-      // === CETAK ITEM PESANAN ===
-      printer.printCustom("================================", 1, 1);
+      // ==== ITEM PESANAN ====
       for (var item in items) {
-        printer.printCustom(item.menuName, 1, 0);
+        await printer.writeBytes(utf8.encode("${item.menuName}\n"));
         String qtyPrice =
-            "x${item.quantity.toStringAsFixed(1)} Rp${_formatCurrency(item.price)}";
-        printer.printLeftRight(
-          qtyPrice,
-          "Rp ${_formatCurrency(item.price * item.quantity)}",
-          1,
+            " ${item.quantity.toStringAsFixed(1)} x Rp${_formatCurrency(item.price)}";
+        String totalLine = "Rp ${_formatCurrency(item.price * item.quantity)}";
+        await printer.writeBytes(
+          utf8.encode("${formatLine(qtyPrice, totalLine)}\n"),
         );
       }
 
-      // === CETAK TOTAL ===
-      printer.printCustom("================================", 1, 1);
-      printer.printLeftRight(
-        "Total",
-        'Rp ${_formatCurrency(order!.totalAmount!)}',
-        1,
+      // ==== TOTAL ====
+      await printer.writeBytes(
+        utf8.encode("================================\n"),
       );
-      printer.printLeftRight(
-        "Bayar",
-        order!.paidAmount != null
-            ? 'Rp ${_formatCurrency(order!.paidAmount!)}'
-            : 'Belum Bayar',
-        1,
+      await printer.writeBytes(
+        utf8.encode(
+          "${formatLine("Total", "Rp ${_formatCurrency(order!.totalAmount!)}")}\n",
+        ),
       );
-      printer.printLeftRight(
-        "Kembali",
-        order!.changeAmount != null
-            ? 'Rp ${_formatCurrency(order!.changeAmount!)}'
-            : '-',
-        1,
+      await printer.writeBytes(
+        utf8.encode(
+          "${formatLine("Bayar", order!.paidAmount != null ? "Rp ${_formatCurrency(order!.paidAmount!)}" : "Belum Bayar")}\n",
+        ),
+      );
+      await printer.writeBytes(
+        utf8.encode(
+          "${formatLine("Kembali", order!.changeAmount != null ? "Rp ${_formatCurrency(order!.changeAmount!)}" : "-")}\n",
+        ),
       );
 
-      // === CETAK FOOTER ===
-      printer.printCustom("================================", 1, 1);
-      printer.printCustom(settings.receiptMessage ?? "Terima kasih", 1, 1);
-
-      printer.printNewLine();
-      printer.printNewLine();
+      // ==== FOOTER ====
+      await printer.writeBytes(
+        utf8.encode("================================\n"),
+      );
+      await printer.writeBytes(Uint8List.fromList([27, 97, 1])); // Center
+      await printer.writeBytes(
+        utf8.encode("${settings.receiptMessage ?? "Terima kasih"}\n\n\n"),
+      );
+      await printer.writeBytes(Uint8List.fromList([27, 100, 1]));
 
       _showNotification(
         "Perintah cetak berhasil dikirim",
@@ -523,10 +581,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                     _showPrintDialog(setting);
                   },
                   icon: const FaIcon(FontAwesomeIcons.print, size: 20),
-                  label: const Text(
-                    'Cetak Struk',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  label: const Text('Cetak', style: TextStyle(fontSize: 16)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal.shade700,
                     foregroundColor: Colors.white,
