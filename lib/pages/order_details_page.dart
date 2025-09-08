@@ -24,8 +24,13 @@ import 'dart:typed_data';
 
 class OrderDetailsPage extends StatefulWidget {
   final model_order.Order order;
+  final bool isFromHistory;
 
-  const OrderDetailsPage({super.key, required this.order});
+  const OrderDetailsPage({
+    super.key,
+    required this.order,
+    this.isFromHistory = false,
+  });
 
   @override
   State<OrderDetailsPage> createState() => _OrderDetailsPageState();
@@ -484,6 +489,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               'Rp ${_formatCurrency(item.price * item.quantity)}',
               style: const TextStyle(
                 fontWeight: FontWeight.bold,
+                fontSize: 16,
                 color: Colors.teal,
               ),
             ),
@@ -501,6 +507,109 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
     List<model_order_item.OrderItem> items,
     model_setting.Setting? setting,
   ) {
+    // Tombol di dalam action section
+    final List<Widget> actionButtons = [
+      // Tombol Edit dan Bayar hanya ditampilkan jika bukan dari riwayat
+      if (!widget.isFromHistory) ...[
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () async {
+              await Provider.of<OrderProvider>(
+                context,
+                listen: false,
+              ).loadOrderToCart(order.id!);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const OrderPage()),
+              );
+            },
+            icon: const Icon(FontAwesomeIcons.solidPenToSquare, size: 20),
+            label: const Text('Edit', style: TextStyle(fontSize: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        // Tombol Cetak Struk selalu ada
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              if (setting == null) {
+                _showNotification(
+                  "Pengaturan belum diset",
+                  Colors.red,
+                  Icons.error_outline,
+                );
+                return;
+              }
+              _showPrintDialog(setting);
+            },
+            icon: const FaIcon(FontAwesomeIcons.print, size: 20),
+            label: const Text('Cetak', style: TextStyle(fontSize: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PaymentPage(
+                    order: model_order.Order(
+                      id: order.id!,
+                      totalAmount: totalAmount,
+                      customerId: order.customerId,
+                      orderStatus: 'Diproses',
+                      orderTime: DateTime.now().toIso8601String(),
+                    ),
+                  ),
+                ),
+              );
+            },
+            icon: const Icon(FontAwesomeIcons.solidCreditCard, size: 20),
+            label: const Text('Bayar', style: TextStyle(fontSize: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ];
+    // Jika dari riwayat, hapus tombol Edit dan Bayar
+    if (widget.isFromHistory) {
+      actionButtons.removeWhere(
+        (element) =>
+            element is Expanded &&
+            (element.child is ElevatedButton &&
+                    (element.child as ElevatedButton).child is Text &&
+                    ((element.child as ElevatedButton).child as Text).data ==
+                        'Edit' ||
+                (element.child as ElevatedButton).child is Text &&
+                    ((element.child as ElevatedButton).child as Text).data ==
+                        'Bayar'),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
@@ -538,93 +647,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             ],
           ),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    await Provider.of<OrderProvider>(
-                      context,
-                      listen: false,
-                    ).loadOrderToCart(order.id!);
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const OrderPage(),
-                      ),
-                    );
-                  },
-                  icon: const Icon(FontAwesomeIcons.solidPenToSquare, size: 20),
-                  label: const Text('Edit', style: TextStyle(fontSize: 16)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade700,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    if (setting == null) {
-                      _showNotification(
-                        "Pengaturan belum diset",
-                        Colors.red,
-                        Icons.error_outline,
-                      );
-                      return;
-                    }
-                    _showPrintDialog(setting);
-                  },
-                  icon: const FaIcon(FontAwesomeIcons.print, size: 20),
-                  label: const Text('Cetak', style: TextStyle(fontSize: 16)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal.shade700,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PaymentPage(
-                          order: model_order.Order(
-                            id: order.id!,
-                            totalAmount: totalAmount,
-                            customerId: order.customerId,
-                            orderStatus: 'Diproses',
-                            orderTime: DateTime.now().toIso8601String(),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(FontAwesomeIcons.solidCreditCard, size: 20),
-                  label: const Text('Bayar', style: TextStyle(fontSize: 16)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green.shade700,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          Row(children: actionButtons),
         ],
       ),
     );
