@@ -44,6 +44,9 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
       case 'Last 7 Days':
         dateToLoad = DateTime.now().subtract(const Duration(days: 7));
         break;
+      default:
+        dateToLoad = null;
+        break;
     }
 
     if (dateToLoad != null) {
@@ -64,7 +67,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     if (customerId == null) return 'Pelanggan (Tanpa Nama)';
     try {
       final customer = customers.firstWhere((c) => c.id == customerId);
-      return customer.name.isNotEmpty ? customer.name : 'Pelanggan (Tanpa Nama)';
+      return (customer.name).isNotEmpty ? customer.name : 'Pelanggan (Tanpa Nama)';
     } catch (e) {
       return 'Pelanggan (Tidak Ditemukan)';
     }
@@ -76,11 +79,43 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
       MaterialPageRoute(
         builder: (context) => ReceiptPreviewPage(
           orderId: order.id!,
-          // Note: cashGiven dan changeAmount tidak tersedia di riwayat
-          cashGiven: 0.0,
-          changeAmount: 0.0,
+          cashGiven: order.paidAmount ?? 0.0,
+          changeAmount: order.changeAmount ?? 0.0,
         ),
       ),
+    );
+  }
+  
+  // ✅ Fungsi untuk menampilkan dialog konfirmasi hapus semua
+  void _showDeleteAllConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Hapus Semua Riwayat Pesanan?'),
+          content: const Text(
+            'Apakah Anda yakin ingin menghapus SEMUA riwayat pesanan? Aksi ini tidak dapat dibatalkan.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Provider.of<OrderListProvider>(context, listen: false)
+                    .deleteAllOrders();
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Hapus Semua'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -88,7 +123,7 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const CustomAppBar(title: 'Riwayat Pesanan'),
-      drawer: const CustomDrawer(currentPage: 'Riwayat Pesanan',),
+      drawer: const CustomDrawer(currentPage: 'Riwayat Pesanan'),
       body: Consumer2<OrderListProvider, CustomerProvider>(
         builder: (context, orderListProvider, customerProvider, child) {
           if (orderListProvider.isLoading || customerProvider.isLoading) {
@@ -104,14 +139,28 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // ✅ Tombol hapus semua
+                    if (orderHistory.isNotEmpty)
+                      OutlinedButton(
+                        onPressed: () => _showDeleteAllConfirmation(context),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                        ),
+                        child: const Text('Hapus Semua'),
+                      ),
+                    // Jika tidak ada riwayat, tampilkan container kosong agar layout tetap
+                    if (orderHistory.isEmpty)
+                      const SizedBox.shrink(),
+                      
                     DropdownButton<String>(
                       value: _selectedDateFilter,
                       items: const [
-                        DropdownMenuItem(value: 'Today', child: Text('Today')),
-                        DropdownMenuItem(value: 'Yesterday', child: Text('Yesterday')),
-                        DropdownMenuItem(value: 'Last 7 Days', child: Text('Last 7 Days')),
+                        DropdownMenuItem(value: 'Today', child: Text('Hari Ini')),
+                        DropdownMenuItem(value: 'Yesterday', child: Text('Kemarin')),
+                        DropdownMenuItem(value: 'Last 7 Days', child: Text('7 Hari Terakhir')),
                       ],
                       onChanged: (value) {
                         if (value != null) {
@@ -149,24 +198,32 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
-                                            customerName,
+                                            'Pesanan #${order.id}',
                                             style: const TextStyle(
-                                              fontSize: 18,
+                                              fontSize: 16,
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
+                                              color: Colors.blueGrey,
                                             ),
                                           ),
                                           Text(
-                                            'Total: Rp ${_formatCurrency(order.totalAmount ?? 0.0)}',
+                                            'Rp ${_formatCurrency(order.totalAmount ?? 0.0)}',
                                             style: const TextStyle(
                                               fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.green,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.teal,
                                             ),
                                           ),
                                         ],
                                       ),
                                       const SizedBox(height: 8),
+                                      Text(
+                                        'Pelanggan: $customerName',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey.shade700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
                                       Text(
                                         'Waktu: ${_getFormattedDate(DateTime.parse(order.orderTime))}',
                                         style: TextStyle(

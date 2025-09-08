@@ -35,11 +35,6 @@ class ReportProvider with ChangeNotifier {
     return totalRevenue - totalExpenses;
   }
 
-  // ReportProvider() {
-  //   // Memuat laporan untuk hari ini secara default
-  //   loadReports(DateTime.now());
-  // }
-
   Future<void> loadReports(DateTime dateTime, {DateTime? date}) async {
     _isLoading = true;
     notifyListeners();
@@ -104,6 +99,7 @@ class ReportProvider with ChangeNotifier {
   }
 
   Future<void> loadReportsByRange(DateTime startDate, DateTime endDate) async {
+    _allExpenses = await _expenseService.getExpensesByDateRange(startDate, endDate);
     _isLoading = true;
     notifyListeners();
 
@@ -133,4 +129,17 @@ class ReportProvider with ChangeNotifier {
     _isLoading = false;
     notifyListeners();
   }
+
+  Future<void> addExpense(String description, double amount) async {
+  final newExpense = model_expense.Expense(
+    description: description,
+    amount: amount,
+    date: DateTime.now().toIso8601String(),
+  );
+
+  await _expenseService.insertExpense(newExpense); // simpan ke DB
+  _allExpenses.add(newExpense); // update provider
+  notifyListeners();
+}
+
 }

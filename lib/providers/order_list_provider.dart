@@ -21,7 +21,6 @@ class OrderListProvider with ChangeNotifier {
   Future<void> loadOrders([DateTime? date]) async {
     _isLoading = true;
     notifyListeners();
-    // Mengambil data pesanan dari layanan berdasarkan tanggal (jika disediakan)
     _allOrders = await _orderService.getOrders(date);
     _isLoading = false;
     notifyListeners();
@@ -29,10 +28,24 @@ class OrderListProvider with ChangeNotifier {
 
   Future<void> updateOrderStatus(int id, String status) async {
     await _orderService.updateOrderStatus(id, status);
-    await loadOrders(); // Memuat ulang data setelah pembaruan status
+    await loadOrders();
   }
 
   Future<List<model_order_item.OrderItem>> getOrderItems(int orderId) async {
     return await _orderService.getOrderItems(orderId);
+  }
+
+  // ✅ Metode baru untuk menghapus semua pesanan
+  Future<void> deleteAllOrders() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _orderService.deleteAllOrders();
+      _allOrders.clear();
+    } catch (e) {
+      debugPrint('Error deleting all orders: $e');
+    }
+    _isLoading = false;
+    notifyListeners();
   }
 }

@@ -27,7 +27,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 7,
+      version: 8,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -123,6 +123,10 @@ class DatabaseHelper {
     if (oldVersion < 7) {
       await db.execute("ALTER TABLE orders ADD COLUMN paid_amount REAL;");
       await db.execute("ALTER TABLE orders ADD COLUMN change_amount REAL;");
+    }
+    if (oldVersion < 8) {
+      await db.execute("ALTER TABLE settings ADD COLUMN resto_phone TEXT;");
+      await db.execute("ALTER TABLE settings ADD COLUMN resto_phone2 TEXT;");
     }
   }
 }

@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:aplikasi_kasir_seafood/models/menu.dart' as model_menu;
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
-import 'package:aplikasi_kasir_seafood/models/order_item.dart' as model_order_item;
+import 'package:aplikasi_kasir_seafood/models/order_item.dart'
+    as model_order_item;
 import 'package:aplikasi_kasir_seafood/services/order_service.dart';
 
 class OrderProvider with ChangeNotifier {
@@ -25,12 +26,14 @@ class OrderProvider with ChangeNotifier {
   // Metode untuk memuat pesanan ke keranjang untuk diedit
   Future<void> loadOrderToCart(int orderId) async {
     final orderItems = await _orderService.getOrderItems(orderId);
-    final order = (await _orderService.getOrders()).firstWhere((o) => o.id == orderId);
-    
+    final order = (await _orderService.getOrders()).firstWhere(
+      (o) => o.id == orderId,
+    );
+
     _cart = orderItems;
     _editingOrderId = orderId;
     _editingCustomerId = order.customerId;
-    
+
     notifyListeners();
   }
 
@@ -38,8 +41,10 @@ class OrderProvider with ChangeNotifier {
     required model_menu.Menu menu,
     required double quantity,
   }) {
-    final existingItemIndex = _cart.indexWhere((item) => item.menuId == menu.id);
-    
+    final existingItemIndex = _cart.indexWhere(
+      (item) => item.menuId == menu.id,
+    );
+
     if (existingItemIndex != -1) {
       _cart[existingItemIndex].quantity += quantity;
     } else {
@@ -92,12 +97,14 @@ class OrderProvider with ChangeNotifier {
       orderTime: DateTime.now().toIso8601String(),
       totalAmount: totalAmount,
     );
-    
+
     if (_editingOrderId != null) {
       await _orderService.updateOrder(newOrder, _cart);
     } else {
       await _orderService.insertOrder(newOrder, _cart);
     }
-    clearCart();
+    if (status != 'Diproses') {
+      clearCart();
+    }
   }
 }
