@@ -6,7 +6,7 @@ import 'package:aplikasi_kasir_seafood/providers/customer_provider.dart';
 import 'package:aplikasi_kasir_seafood/models/customer.dart' as model_customer;
 import 'package:aplikasi_kasir_seafood/widgets/custom_app_bar.dart';
 import 'package:aplikasi_kasir_seafood/widgets/custom_drawer.dart';
-import 'package:aplikasi_kasir_seafood/pages/receipt_preview_page.dart';
+import 'package:aplikasi_kasir_seafood/pages/order_details_page.dart'; // Import halaman OrderDetailsPage
 import 'package:aplikasi_kasir_seafood/models/order.dart' as model_order;
 
 class OrderHistoryPage extends StatefulWidget {
@@ -23,7 +23,10 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<OrderListProvider>(context, listen: false).loadOrders(DateTime.now());
+      Provider.of<OrderListProvider>(
+        context,
+        listen: false,
+      ).loadOrders(DateTime.now());
       Provider.of<CustomerProvider>(context, listen: false).loadCustomers();
     });
   }
@@ -50,7 +53,10 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     }
 
     if (dateToLoad != null) {
-      await Provider.of<OrderListProvider>(context, listen: false).loadOrders(dateToLoad);
+      await Provider.of<OrderListProvider>(
+        context,
+        listen: false,
+      ).loadOrders(dateToLoad);
     }
   }
 
@@ -63,29 +69,34 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
     return DateFormat('dd MMM yyyy, HH:mm').format(dateTime);
   }
 
-  String _getCustomerName(int? customerId, List<model_customer.Customer> customers) {
+  String _getCustomerName(
+    int? customerId,
+    List<model_customer.Customer> customers,
+  ) {
     if (customerId == null) return 'Pelanggan (Tanpa Nama)';
     try {
       final customer = customers.firstWhere((c) => c.id == customerId);
-      return (customer.name).isNotEmpty ? customer.name : 'Pelanggan (Tanpa Nama)';
+      return (customer.name).isNotEmpty
+          ? customer.name
+          : 'Pelanggan (Tanpa Nama)';
     } catch (e) {
       return 'Pelanggan (Tidak Ditemukan)';
     }
   }
 
-  void _navigateToReceiptPreview(model_order.Order order) {
+  // ✅ Metode navigasi baru ke OrderDetailsPage
+  void _navigateToOrderDetails(model_order.Order order) {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ReceiptPreviewPage(
-          orderId: order.id!,
-          cashGiven: order.paidAmount ?? 0.0,
-          changeAmount: order.changeAmount ?? 0.0,
+        builder: (context) => OrderDetailsPage(
+          order: order,
+          isFromHistory: true, // ✅ Menambahkan flag untuk menyembunyikan tombol
         ),
       ),
     );
   }
-  
+
   // ✅ Fungsi untuk menampilkan dialog konfirmasi hapus semua
   void _showDeleteAllConfirmation(BuildContext context) {
     showDialog(
@@ -103,8 +114,10 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             ),
             ElevatedButton(
               onPressed: () {
-                Provider.of<OrderListProvider>(context, listen: false)
-                    .deleteAllOrders();
+                Provider.of<OrderListProvider>(
+                  context,
+                  listen: false,
+                ).deleteAllOrders();
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
@@ -137,7 +150,10 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 8.0,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -152,15 +168,23 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                         child: const Text('Hapus Semua'),
                       ),
                     // Jika tidak ada riwayat, tampilkan container kosong agar layout tetap
-                    if (orderHistory.isEmpty)
-                      const SizedBox.shrink(),
-                      
+                    if (orderHistory.isEmpty) const SizedBox.shrink(),
+
                     DropdownButton<String>(
                       value: _selectedDateFilter,
                       items: const [
-                        DropdownMenuItem(value: 'Today', child: Text('Hari Ini')),
-                        DropdownMenuItem(value: 'Yesterday', child: Text('Kemarin')),
-                        DropdownMenuItem(value: 'Last 7 Days', child: Text('7 Hari Terakhir')),
+                        DropdownMenuItem(
+                          value: 'Today',
+                          child: Text('Hari Ini'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Yesterday',
+                          child: Text('Kemarin'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'Last 7 Days',
+                          child: Text('7 Hari Terakhir'),
+                        ),
                       ],
                       onChanged: (value) {
                         if (value != null) {
@@ -180,22 +204,32 @@ class _OrderHistoryPageState extends State<OrderHistoryPage> {
                           itemCount: orderHistory.length,
                           itemBuilder: (context, index) {
                             final order = orderHistory[index];
-                            final customerName = _getCustomerName(order.customerId, customers);
+                            final customerName = _getCustomerName(
+                              order.customerId,
+                              customers,
+                            );
                             return GestureDetector(
-                              onTap: () => _navigateToReceiptPreview(order),
+                              onTap: () => _navigateToOrderDetails(
+                                order,
+                              ), // ✅ Mengubah navigasi di sini
                               child: Card(
                                 elevation: 4,
-                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Padding(
                                   padding: const EdgeInsets.all(16.0),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
                                         children: [
                                           Text(
                                             'Pesanan #${order.id}',

@@ -92,7 +92,7 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
                   ),
                   keyboardType: TextInputType.number,
                   inputFormatters: [
-                    // Menggunakan CurrencyInputFormatter untuk otomatisasi
+                    // ✅ Menggunakan CurrencyInputFormatter dengan mantissaLength: 2 untuk desimal
                     CurrencyInputFormatter(
                       thousandSeparator: ThousandSeparator.Period,
                       mantissaLength: 0,
@@ -102,10 +102,9 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
                     if (value == null || value.isEmpty) {
                       return 'Jumlah tidak boleh kosong';
                     }
-                    final doubleAmount = double.tryParse(value);
-                    if (doubleAmount == null || doubleAmount <= 0) {
-                      return 'Jumlah harus lebih dari 0';
-                    }
+                    final numeric = toNumericString(value, allowPeriod: false);
+                    final doubleAmount = double.parse(numeric);
+                    if (doubleAmount <= 0) return 'Jumlah harus lebih dari 0';
                     return null;
                   },
                 ),
@@ -121,19 +120,28 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
             ElevatedButton(
               onPressed: () async {
                 if (_formKey.currentState!.validate()) {
-                  final desc = _descController.text.trim();
-                  // Menggunakan toDouble dari package flutter_multi_formatter
-                  final amount = double.parse(_amountController.text);
+                  final rawAmount = _amountController.text;
+                  final desc = _descController.text;
+                  final numericAmount = toNumericString(
+                    rawAmount,
+                    allowPeriod: false,
+                  );
+                  final doubleAmount = double.parse(numericAmount);
                   final newExpense = model_expense.Expense(
                     id: null,
                     description: desc,
-                    amount: amount,
+                    amount: doubleAmount,
                     date: DateFormat('yyyy-MM-dd').format(DateTime.now()),
                   );
                   await Provider.of<ExpenseProvider>(
                     context,
                     listen: false,
                   ).insertExpense(newExpense);
+
+                  // Clear controller supaya input kosong saat dialog dibuka lagi
+                  _descController.clear();
+                  _amountController.clear();
+
                   Navigator.pop(context);
                   if (mounted) {
                     CustomNotification.show(
@@ -142,7 +150,6 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
                       backgroundColor: Colors.green,
                       icon: Icons.check,
                     );
-                    // Memuat ulang data setelah menambahkan pengeluaran
                     await Provider.of<ExpenseProvider>(
                       context,
                       listen: false,
@@ -166,16 +173,54 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
   }
 
   void _deleteExpense(int id) async {
-    await Provider.of<ExpenseProvider>(
-      context,
-      listen: false,
-    ).deleteExpense(id);
-    CustomNotification.show(
-      context,
-      'Pengeluaran berhasil dihapus',
-      backgroundColor: Colors.red,
-      icon: Icons.check,
-    );
+      bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            'Konfirmasi Hapus',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+          ),
+          content: Text(
+            'Apakah Anda yakin ingin menghapus pengeluaran ini?',
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.blueGrey,
+              ),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Hapus'),
+            ),
+          ],
+        );
+      },
+      );
+          if (confirm == true) {
+      await Provider.of<ExpenseProvider>(
+        context,
+        listen: false,
+      ).deleteExpense(id);
+      CustomNotification.show(
+        context,
+        'Pengeluaran berhasil dihapus',
+        backgroundColor: Colors.red,
+        icon: Icons.check,
+      );
+    }
   }
 
   @override
@@ -242,6 +287,7 @@ class _ExpenseHistoryPageState extends State<ExpenseHistoryPage> {
                         _formatCurrency(expense.amount),
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
+                          fontSize: 16,
                           color: Colors.red,
                         ),
                       ),
