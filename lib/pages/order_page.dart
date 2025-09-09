@@ -108,7 +108,7 @@ class _OrderPageState extends State<OrderPage> {
                         ),
                         const SizedBox(width: 8),
                         SizedBox(
-                          width: 72,
+                          width: 80,
                           child: DropdownButtonFormField<String>(
                             value: _sortOrder,
                             decoration: InputDecoration(

@@ -22,12 +22,14 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
+    // ✅ Mengambil direktori dokumen yang persisten di perangkat
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
+    // ✅ Menggabungkan path direktori dan nama file database
     String path = join(documentsDirectory.path, 'kasir_seafood.db');
 
     return await openDatabase(
       path,
-      version: 8,
+      version: 17,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -40,7 +42,9 @@ class DatabaseHelper {
         resto_name TEXT,
         resto_logo TEXT,
         resto_address TEXT,
-        receipt_message TEXT
+        receipt_message TEXT,
+        resto_phone TEXT,
+        resto_phone2 TEXT
       )
     ''');
 
@@ -57,7 +61,10 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE categories (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT
+        name TEXT,
+        orderPosition INTEGER,
+        createdAt TEXT,
+        updatedAt TEXT
       )
     ''');
 
@@ -93,6 +100,8 @@ class DatabaseHelper {
         total_amount REAL,
         order_status TEXT NOT NULL,
         order_time TEXT NOT NULL,
+        paid_amount REAL,
+        change_amount REAL,
         FOREIGN KEY (customer_id) REFERENCES customers(id)
       )
     ''');
@@ -115,18 +124,14 @@ class DatabaseHelper {
     if (oldVersion < 5) {
       await db.execute("ALTER TABLE order_items ADD COLUMN menuName TEXT;");
     }
-    if (oldVersion < 6) {
+    if (oldVersion < 16) {
       await db.execute("ALTER TABLE categories ADD COLUMN orderPosition INTEGER;");
+    }
+    if (oldVersion < 17) {
       await db.execute("ALTER TABLE categories ADD COLUMN createdAt TEXT;");
       await db.execute("ALTER TABLE categories ADD COLUMN updatedAt TEXT;");
-    }
-    if (oldVersion < 7) {
       await db.execute("ALTER TABLE orders ADD COLUMN paid_amount REAL;");
       await db.execute("ALTER TABLE orders ADD COLUMN change_amount REAL;");
-    }
-    if (oldVersion < 8) {
-      await db.execute("ALTER TABLE settings ADD COLUMN resto_phone TEXT;");
-      await db.execute("ALTER TABLE settings ADD COLUMN resto_phone2 TEXT;");
     }
   }
 }

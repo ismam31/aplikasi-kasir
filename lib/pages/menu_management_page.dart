@@ -190,7 +190,7 @@ class _MenuManagementPageState extends State<MenuManagementPage> {
                             ),
                             const SizedBox(width: 8),
                             SizedBox(
-                              width: 72, // atur lebar sesuai selera
+                              width: 80,
                               child: DropdownButtonFormField<String>(
                                 value: _sortOrder,
                                 decoration: InputDecoration(
